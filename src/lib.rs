@@ -10,11 +10,11 @@ use rand::{
 };
 
 #[derive(Debug, Clone)]
-pub struct Generator {
+pub struct PermutationTable {
     perm: [i32; 512],
 }
 
-impl Generator {
+impl PermutationTable {
     pub const fn new() -> Self {
         Self { perm: DEFAULT_PERM }
     }
@@ -198,154 +198,154 @@ impl Generator {
             },
         }
     }
+}
 
-    pub fn simplex_3d<const LANES: usize>(
-        &self,
-        [x, y, z]: [Simd<f32, LANES>; 3],
-    ) -> Sample<LANES, 3>
-    where
-        LaneCount<LANES>: SupportedLaneCount,
-    {
-        const SKEW: f32 = 1.0 / 3.0;
-        const UNSKEW: f32 = 1.0 / 6.0;
+pub fn simplex_3d<const LANES: usize>(
+    seed: i32,
+    [x, y, z]: [Simd<f32, LANES>; 3],
+) -> Sample<LANES, 3>
+where
+    LaneCount<LANES>: SupportedLaneCount,
+{
+    const SKEW: f32 = 1.0 / 3.0;
+    const UNSKEW: f32 = 1.0 / 6.0;
 
-        const X_PRIME: i32 = 1619;
-        const Y_PRIME: i32 = 31337;
-        const Z_PRIME: i32 = 6791;
+    const X_PRIME: i32 = 1619;
+    const Y_PRIME: i32 = 31337;
+    const Z_PRIME: i32 = 6791;
 
-        // Find skewed simplex grid coordinates associated with the input coordinates
-        let f = (x + y + z) * Simd::splat(SKEW);
-        let x0 = (x + f).floor();
-        let y0 = (y + f).floor();
-        let z0 = (z + f).floor();
+    // Find skewed simplex grid coordinates associated with the input coordinates
+    let f = (x + y + z) * Simd::splat(SKEW);
+    let x0 = (x + f).floor();
+    let y0 = (y + f).floor();
+    let z0 = (z + f).floor();
 
-        // Integer grid coordinates
-        let i = x0.cast::<i32>() * Simd::splat(X_PRIME);
-        let j = y0.cast::<i32>() * Simd::splat(Y_PRIME);
-        let k = z0.cast::<i32>() * Simd::splat(Z_PRIME);
+    // Integer grid coordinates
+    let i = x0.cast::<i32>() * Simd::splat(X_PRIME);
+    let j = y0.cast::<i32>() * Simd::splat(Y_PRIME);
+    let k = z0.cast::<i32>() * Simd::splat(Z_PRIME);
 
-        let g = Simd::splat(UNSKEW) * (x0 + y0 + z0);
-        let x0 = x - (x0 - g);
-        let y0 = y - (y0 - g);
-        let z0 = z - (z0 - g);
+    let g = Simd::splat(UNSKEW) * (x0 + y0 + z0);
+    let x0 = x - (x0 - g);
+    let y0 = y - (y0 - g);
+    let z0 = z - (z0 - g);
 
-        let x0_ge_y0 = x0.lanes_ge(y0);
-        let y0_ge_z0 = y0.lanes_ge(z0);
-        let x0_ge_z0 = x0.lanes_ge(z0);
+    let x0_ge_y0 = x0.lanes_ge(y0);
+    let y0_ge_z0 = y0.lanes_ge(z0);
+    let x0_ge_z0 = x0.lanes_ge(z0);
 
-        let i1 = x0_ge_y0 & x0_ge_z0;
-        let j1 = !x0_ge_y0 & y0_ge_z0;
-        let k1 = !x0_ge_z0 & !y0_ge_z0;
+    let i1 = x0_ge_y0 & x0_ge_z0;
+    let j1 = !x0_ge_y0 & y0_ge_z0;
+    let k1 = !x0_ge_z0 & !y0_ge_z0;
 
-        let i2 = x0_ge_y0 | x0_ge_z0;
-        let j2 = !x0_ge_y0 | y0_ge_z0;
-        let k2 = !(x0_ge_z0 & y0_ge_z0);
+    let i2 = x0_ge_y0 | x0_ge_z0;
+    let j2 = !x0_ge_y0 | y0_ge_z0;
+    let k2 = !(x0_ge_z0 & y0_ge_z0);
 
-        let x1 = x0 - i1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(UNSKEW);
-        let y1 = y0 - j1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(UNSKEW);
-        let z1 = z0 - k1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(UNSKEW);
+    let x1 = x0 - i1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(UNSKEW);
+    let y1 = y0 - j1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(UNSKEW);
+    let z1 = z0 - k1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(UNSKEW);
 
-        let x2 = x0 - i2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(SKEW);
-        let y2 = y0 - j2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(SKEW);
-        let z2 = z0 - k2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(SKEW);
+    let x2 = x0 - i2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(SKEW);
+    let y2 = y0 - j2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(SKEW);
+    let z2 = z0 - k2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(SKEW);
 
-        let x3 = x0 + Simd::splat(-0.5);
-        let y3 = y0 + Simd::splat(-0.5);
-        let z3 = z0 + Simd::splat(-0.5);
+    let x3 = x0 + Simd::splat(-0.5);
+    let y3 = y0 + Simd::splat(-0.5);
+    let z3 = z0 + Simd::splat(-0.5);
 
-        // Compute base weight factors associated with each vertex, `0.5 - v . v` where v is the
-        // difference between the sample point and the vertex. We currently use 0.6 rather than 0.5
-        // for historical reasons. TODO: Rerun scaling factor optimization using 0.5.
-        let t0 = (Simd::splat(0.6) - x0 * x0 - y0 * y0 - z0 * z0).max(Simd::splat(0.0));
-        let t1 = (Simd::splat(0.6) - x1 * x1 - y1 * y1 - z1 * z1).max(Simd::splat(0.0));
-        let t2 = (Simd::splat(0.6) - x2 * x2 - y2 * y2 - z2 * z2).max(Simd::splat(0.0));
-        let t3 = (Simd::splat(0.6) - x3 * x3 - y3 * y3 - z3 * z3).max(Simd::splat(0.0));
+    // Compute base weight factors associated with each vertex, `0.5 - v . v` where v is the
+    // difference between the sample point and the vertex. We currently use 0.6 rather than 0.5
+    // for historical reasons. TODO: Rerun scaling factor optimization using 0.5.
+    let t0 = (Simd::splat(0.6) - x0 * x0 - y0 * y0 - z0 * z0).max(Simd::splat(0.0));
+    let t1 = (Simd::splat(0.6) - x1 * x1 - y1 * y1 - z1 * z1).max(Simd::splat(0.0));
+    let t2 = (Simd::splat(0.6) - x2 * x2 - y2 * y2 - z2 * z2).max(Simd::splat(0.0));
+    let t3 = (Simd::splat(0.6) - x3 * x3 - y3 * y3 - z3 * z3).max(Simd::splat(0.0));
 
-        // Square weights
-        let t20 = t0 * t0;
-        let t21 = t1 * t1;
-        let t22 = t2 * t2;
-        let t23 = t3 * t3;
+    // Square weights
+    let t20 = t0 * t0;
+    let t21 = t1 * t1;
+    let t22 = t2 * t2;
+    let t23 = t3 * t3;
 
-        // ...twice!
-        let t40 = t20 * t20;
-        let t41 = t21 * t21;
-        let t42 = t22 * t22;
-        let t43 = t23 * t23;
+    // ...twice!
+    let t40 = t20 * t20;
+    let t41 = t21 * t21;
+    let t42 = t22 * t22;
+    let t43 = t23 * t23;
 
-        // Compute contribution from each vertex
-        let g0 = gradient_3d_dot([i, j, k], [x0, y0, z0]);
-        let v0 = t40 * g0;
+    // Compute contribution from each vertex
+    let g0 = gradient_3d_dot(seed, [i, j, k], [x0, y0, z0]);
+    let v0 = t40 * g0;
 
-        let v1x = i + i1.select(Simd::splat(X_PRIME), Simd::splat(0));
-        let v1y = j + j1.select(Simd::splat(Y_PRIME), Simd::splat(0));
-        let v1z = k + k1.select(Simd::splat(Z_PRIME), Simd::splat(0));
-        let g1 = gradient_3d_dot([v1x, v1y, v1z], [x1, y1, z1]);
-        let v1 = t41 * g1;
+    let v1x = i + i1.select(Simd::splat(X_PRIME), Simd::splat(0));
+    let v1y = j + j1.select(Simd::splat(Y_PRIME), Simd::splat(0));
+    let v1z = k + k1.select(Simd::splat(Z_PRIME), Simd::splat(0));
+    let g1 = gradient_3d_dot(seed, [v1x, v1y, v1z], [x1, y1, z1]);
+    let v1 = t41 * g1;
 
-        let v2x = i + i2.select(Simd::splat(X_PRIME), Simd::splat(0));
-        let v2y = j + j2.select(Simd::splat(Y_PRIME), Simd::splat(0));
-        let v2z = k + k2.select(Simd::splat(Z_PRIME), Simd::splat(0));
-        let g2 = gradient_3d_dot([v2x, v2y, v2z], [x2, y2, z2]);
-        let v2 = t42 * g2;
+    let v2x = i + i2.select(Simd::splat(X_PRIME), Simd::splat(0));
+    let v2y = j + j2.select(Simd::splat(Y_PRIME), Simd::splat(0));
+    let v2z = k + k2.select(Simd::splat(Z_PRIME), Simd::splat(0));
+    let g2 = gradient_3d_dot(seed, [v2x, v2y, v2z], [x2, y2, z2]);
+    let v2 = t42 * g2;
 
-        let v3x = i + Simd::splat(X_PRIME);
-        let v3y = j + Simd::splat(Y_PRIME);
-        let v3z = k + Simd::splat(Z_PRIME);
-        let g3 = gradient_3d_dot([v3x, v3y, v3z], [x3, y3, z3]);
-        let v3 = t43 * g3;
+    let v3x = i + Simd::splat(X_PRIME);
+    let v3y = j + Simd::splat(Y_PRIME);
+    let v3z = k + Simd::splat(Z_PRIME);
+    let g3 = gradient_3d_dot(seed, [v3x, v3y, v3z], [x3, y3, z3]);
+    let v3 = t43 * g3;
 
-        // Scaling factor found by numerical optimization
-        const SCALE: f32 = 32.69587493801679;
-        Sample {
-            value: (v3 + v2 + v1 + v0) * Simd::splat(SCALE),
-            derivative: {
-                let temp0 = t20 * t0 * g0;
-                let mut dnoise_dx = temp0 * x0;
-                let mut dnoise_dy = temp0 * y0;
-                let mut dnoise_dz = temp0 * z0;
-                let temp1 = t21 * t1 * g1;
-                dnoise_dx += temp1 * x1;
-                dnoise_dy += temp1 * y1;
-                dnoise_dz += temp1 * z1;
-                let temp2 = t22 * t2 * g2;
-                dnoise_dx += temp2 * x2;
-                dnoise_dy += temp2 * y2;
-                dnoise_dz += temp2 * z2;
-                let temp3 = t23 * t3 * g3;
-                dnoise_dx += temp3 * x3;
-                dnoise_dy += temp3 * y3;
-                dnoise_dz += temp3 * z3;
-                dnoise_dx *= Simd::splat(-8.0);
-                dnoise_dy *= Simd::splat(-8.0);
-                dnoise_dz *= Simd::splat(-8.0);
-                let [gx0, gy0, gz0] = gradient_3d([i, j, k]);
-                let [gx1, gy1, gz1] = gradient_3d([v1x, v1y, v1z]);
-                let [gx2, gy2, gz2] = gradient_3d([v2x, v2y, v2z]);
-                let [gx3, gy3, gz3] = gradient_3d([v3x, v3y, v3z]);
-                dnoise_dx += t40 * gx0 + t41 * gx1 + t42 * gx2 + t43 * gx3;
-                dnoise_dy += t40 * gy0 + t41 * gy1 + t42 * gy2 + t43 * gy3;
-                dnoise_dz += t40 * gz0 + t41 * gz1 + t42 * gz2 + t43 * gz3;
-                // Scale into range
-                dnoise_dx *= Simd::splat(SCALE);
-                dnoise_dy *= Simd::splat(SCALE);
-                dnoise_dz *= Simd::splat(SCALE);
-                [dnoise_dx, dnoise_dy, dnoise_dz]
-            },
-        }
+    // Scaling factor found by numerical optimization
+    const SCALE: f32 = 32.69587493801679;
+    Sample {
+        value: (v3 + v2 + v1 + v0) * Simd::splat(SCALE),
+        derivative: {
+            let temp0 = t20 * t0 * g0;
+            let mut dnoise_dx = temp0 * x0;
+            let mut dnoise_dy = temp0 * y0;
+            let mut dnoise_dz = temp0 * z0;
+            let temp1 = t21 * t1 * g1;
+            dnoise_dx += temp1 * x1;
+            dnoise_dy += temp1 * y1;
+            dnoise_dz += temp1 * z1;
+            let temp2 = t22 * t2 * g2;
+            dnoise_dx += temp2 * x2;
+            dnoise_dy += temp2 * y2;
+            dnoise_dz += temp2 * z2;
+            let temp3 = t23 * t3 * g3;
+            dnoise_dx += temp3 * x3;
+            dnoise_dy += temp3 * y3;
+            dnoise_dz += temp3 * z3;
+            dnoise_dx *= Simd::splat(-8.0);
+            dnoise_dy *= Simd::splat(-8.0);
+            dnoise_dz *= Simd::splat(-8.0);
+            let [gx0, gy0, gz0] = gradient_3d(seed, [i, j, k]);
+            let [gx1, gy1, gz1] = gradient_3d(seed, [v1x, v1y, v1z]);
+            let [gx2, gy2, gz2] = gradient_3d(seed, [v2x, v2y, v2z]);
+            let [gx3, gy3, gz3] = gradient_3d(seed, [v3x, v3y, v3z]);
+            dnoise_dx += t40 * gx0 + t41 * gx1 + t42 * gx2 + t43 * gx3;
+            dnoise_dy += t40 * gy0 + t41 * gy1 + t42 * gy2 + t43 * gy3;
+            dnoise_dz += t40 * gz0 + t41 * gz1 + t42 * gz2 + t43 * gz3;
+            // Scale into range
+            dnoise_dx *= Simd::splat(SCALE);
+            dnoise_dy *= Simd::splat(SCALE);
+            dnoise_dz *= Simd::splat(SCALE);
+            [dnoise_dx, dnoise_dy, dnoise_dz]
+        },
     }
 }
 
 #[cfg(feature = "rand")]
-impl Distribution<Generator> for Standard {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Generator {
-        Generator::new(rng)
+impl Distribution<PermutationTable> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> PermutationTable {
+        PermutationTable::new(rng)
     }
 }
 
-impl Default for Generator {
+impl Default for PermutationTable {
     fn default() -> Self {
-        Generator::new()
+        PermutationTable::new()
     }
 }
 
@@ -427,13 +427,14 @@ where
 /// double-unit cube and computes its dot product with [x, y, z]
 #[inline(always)]
 fn gradient_3d_dot<const LANES: usize>(
+    seed: i32,
     vertex: [Simd<i32, LANES>; 3],
     [x, y, z]: [Simd<f32, LANES>; 3],
 ) -> Simd<f32, LANES>
 where
     LaneCount<LANES>: SupportedLaneCount,
 {
-    let h = Hash3d::new(vertex);
+    let h = Hash3d::new(seed, vertex);
     let u = h.l8.select(x, y);
     let v = h.l4.select(y, h.h12_or_14.select(x, z));
     // Maybe flip sign bits, then sum
@@ -445,11 +446,14 @@ where
 ///
 /// This is a separate function because it's slower than `grad3d_dot` and only needed when computing
 /// derivatives.
-fn gradient_3d<const LANES: usize>(vertex: [Simd<i32, LANES>; 3]) -> [Simd<f32, LANES>; 3]
+fn gradient_3d<const LANES: usize>(
+    seed: i32,
+    vertex: [Simd<i32, LANES>; 3],
+) -> [Simd<f32, LANES>; 3]
 where
     LaneCount<LANES>: SupportedLaneCount,
 {
-    let h = Hash3d::new(vertex);
+    let h = Hash3d::new(seed, vertex);
     let first =
         Simd::<f32, LANES>::from_bits(h.h1.cast() | Simd::<f32, LANES>::splat(1.0).to_bits());
     let gx = h.l8.select(first, Simd::splat(0.0));
@@ -484,8 +488,8 @@ where
 {
     /// Compute hash values used by `grad3d` and `grad3d_dot`
     #[inline(always)]
-    fn new([i, j, k]: [Simd<i32, LANES>; 3]) -> Self {
-        let hash = i ^ j ^ k;
+    fn new(seed: i32, [i, j, k]: [Simd<i32, LANES>; 3]) -> Self {
+        let hash = i ^ j ^ k ^ Simd::splat(seed);
         let hash = ((hash * hash) * Simd::splat(60493)) * hash;
         let hash = (hash >> Simd::splat(13)) ^ hash;
         let hasha13 = hash & Simd::splat(13);
@@ -504,7 +508,7 @@ where
 mod tests {
     use super::*;
 
-    const G: Generator = Generator::new();
+    const G: PermutationTable = PermutationTable::new();
 
     fn check_bounds(min: f32, max: f32) {
         dbg!(min, max);
@@ -607,9 +611,10 @@ mod tests {
             for j in 0..10 {
                 for i in 0..10 {
                     let vertex = [Simd::splat(i), Simd::splat(j), Simd::splat(k)];
-                    let grad = gradient_3d::<1>(vertex);
+                    let grad = gradient_3d::<1>(0, vertex);
                     assert_eq!(
                         gradient_3d_dot::<1>(
+                            0,
                             vertex,
                             [Simd::splat(1.0), Simd::splat(10.0), Simd::splat(100.0)]
                         )[0],
@@ -627,13 +632,15 @@ mod tests {
         for z in 0..10 {
             for y in 0..10 {
                 for x in 0..1000 {
-                    let n = G
-                        .simplex_3d::<1>([
+                    let n = simplex_3d::<1>(
+                        0,
+                        [
                             Simd::splat(x as f32 / 10.0),
                             Simd::splat(y as f32 / 10.0),
                             Simd::splat(z as f32 / 10.0),
-                        ])
-                        .value[0];
+                        ],
+                    )
+                    .value[0];
                     min = min.min(n);
                     max = max.max(n);
                 }
@@ -657,33 +664,42 @@ mod tests {
                     let Sample {
                         value,
                         derivative: d,
-                    } = G.simplex_3d::<1>([
-                        Simd::splat(center_x),
-                        Simd::splat(center_y),
-                        Simd::splat(center_z),
-                    ]);
+                    } = simplex_3d::<1>(
+                        0,
+                        [
+                            Simd::splat(center_x),
+                            Simd::splat(center_y),
+                            Simd::splat(center_z),
+                        ],
+                    );
                     let (value, d) = (value[0], [d[0][0], d[1][0], d[2][0]]);
-                    let right = G
-                        .simplex_3d::<1>([
+                    let right = simplex_3d::<1>(
+                        0,
+                        [
                             Simd::splat(center_x + H),
                             Simd::splat(center_y),
                             Simd::splat(center_z),
-                        ])
-                        .value[0];
-                    let up = G
-                        .simplex_3d::<1>([
+                        ],
+                    )
+                    .value[0];
+                    let up = simplex_3d::<1>(
+                        0,
+                        [
                             Simd::splat(center_x),
                             Simd::splat(center_y + H),
                             Simd::splat(center_z),
-                        ])
-                        .value[0];
-                    let forward = G
-                        .simplex_3d::<1>([
+                        ],
+                    )
+                    .value[0];
+                    let forward = simplex_3d::<1>(
+                        0,
+                        [
                             Simd::splat(center_x),
                             Simd::splat(center_y),
                             Simd::splat(center_z + H),
-                        ])
-                        .value[0];
+                        ],
+                    )
+                    .value[0];
                     dbg!(value, d, right, up, forward);
                     avg_err += ((right - (value + d[0] * H)).abs()
                         + (up - (value + d[1] * H)).abs()
