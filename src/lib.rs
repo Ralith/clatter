@@ -26,7 +26,7 @@ impl PermutationTable {
             perm[i] = i as i32;
         }
         perm[..256].shuffle(rng);
-        // Duplicating the permutation table lets us skip wrapping latter
+        // Duplicating the permutation table lets us skip wrapping in simplex_2d
         let (left, right) = perm.split_at_mut(256);
         right.copy_from_slice(left);
         Self { perm }
