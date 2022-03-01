@@ -14,7 +14,7 @@ use rand::{
 
 #[derive(Debug, Clone)]
 pub struct Simplex1d {
-    seed: u32,
+    seed: i32,
 }
 
 impl Simplex1d {
@@ -42,8 +42,8 @@ impl Simplex1d {
         let x1 = x0 - Simd::splat(1.0);
 
         // Select gradients
-        let gi0 = hash_1d(Simd::splat(self.seed) ^ i0.cast());
-        let gi1 = hash_1d(Simd::splat(self.seed) ^ i1.cast());
+        let gi0 = pcg_hash(Simd::splat(self.seed) ^ i0.cast());
+        let gi1 = pcg_hash(Simd::splat(self.seed) ^ i1.cast());
 
         // Compute the contribution from the first gradient
         // n0 = grad0 * (1 - x0^2)^4 * x0
@@ -100,12 +100,12 @@ impl Distribution<Simplex1d> for Standard {
     }
 }
 
-fn hash_1d<const LANES: usize>(v: Simd<u32, LANES>) -> Simd<u32, LANES>
+fn pcg_hash<const LANES: usize>(v: Simd<i32, LANES>) -> Simd<i32, LANES>
 where
     LaneCount<LANES>: SupportedLaneCount,
 {
     // PCG hash function from "Hash Functions for GPU Rendering"
-    let state = v * Simd::splat(747796405) + Simd::splat(2891336453);
+    let state = v * Simd::splat(747796405) + Simd::splat(2891336453u32 as i32);
     let word =
         ((state >> ((state >> Simd::splat(28)) + Simd::splat(4))) ^ state) * Simd::splat(277803737);
     (word >> Simd::splat(22)) ^ word
@@ -115,7 +115,7 @@ where
 ///
 /// This differs from Gustavson's well-known implementation in that gradients can be zero, and the
 /// maximum gradient is 7 rather than 8.
-fn gradient_1d<const LANES: usize>(hash: Simd<u32, LANES>) -> Simd<f32, LANES>
+fn gradient_1d<const LANES: usize>(hash: Simd<i32, LANES>) -> Simd<f32, LANES>
 where
     LaneCount<LANES>: SupportedLaneCount,
 {
@@ -128,58 +128,19 @@ where
 
 #[derive(Debug, Clone)]
 pub struct Simplex2d {
-    perm: [i32; 512],
+    seed: [i32; 2],
 }
 
 impl Simplex2d {
     pub const fn new() -> Self {
-        Self {
-            // An arbitrary shuffling of 0..256, repeated once
-            perm: [
-                151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36,
-                103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120, 234, 75, 0,
-                26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149, 56, 87,
-                174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48, 27, 166, 77, 146,
-                158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40,
-                244, 102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18,
-                169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64,
-                52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206,
-                59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213, 119, 248, 152, 2,
-                44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98,
-                108, 110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228, 251, 34, 242,
-                193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239, 107,
-                49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4,
-                150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66,
-                215, 61, 156, 180, 151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233,
-                7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247,
-                120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88,
-                237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48,
-                27, 166, 77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92, 41,
-                55, 46, 245, 40, 244, 102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132,
-                187, 208, 89, 18, 169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198,
-                173, 186, 3, 64, 52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82,
-                85, 212, 207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213,
-                119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22,
-                39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97,
-                228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235,
-                249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115,
-                121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243,
-                141, 128, 195, 78, 66, 215, 61, 156, 180,
-            ],
-        }
+        Self { seed: [0; 2] }
     }
 
     #[cfg(feature = "rand")]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        let mut perm = [0; 512];
-        for i in 0..256 {
-            perm[i] = i as i32;
+        Self {
+            seed: [rng.gen(), rng.gen()],
         }
-        perm[..256].shuffle(rng);
-        // Duplicating the permutation table lets us skip wrapping
-        let (left, right) = perm.split_at_mut(256);
-        right.copy_from_slice(left);
-        Self { perm }
     }
 
     pub fn sample<const LANES: usize>(&self, [x, y]: [Simd<f32, LANES>; 2]) -> Sample<LANES, 2>
@@ -214,24 +175,14 @@ impl Simplex2d {
         let x2 = x0 + Simd::splat(-1.0) + Simd::splat(2.0 * UNSKEW);
         let y2 = y0 + Simd::splat(-1.0) + Simd::splat(2.0 * UNSKEW);
 
-        let ii = i & Simd::splat(0xFF);
-        let jj = j & Simd::splat(0xFF);
-
-        let gi0 = Simd::<i32, LANES>::gather_or_default(
-            &self.perm,
-            (ii + Simd::gather_or_default(&self.perm, jj.cast())).cast(),
+        let gi0 =
+            pcg_hash(pcg_hash(i ^ Simd::splat(self.seed[0])) + (j ^ Simd::splat(self.seed[1])));
+        let gi1 = pcg_hash(
+            pcg_hash((i - i1) ^ Simd::splat(self.seed[0])) + (j - j1) ^ Simd::splat(self.seed[1]),
         );
-
-        let gi1 = Simd::<i32, LANES>::gather_or_default(
-            &self.perm,
-            ((ii - i1) + Simd::gather_or_default(&self.perm, (jj - j1).cast())).cast(),
-        );
-
-        let gi2 = Simd::<i32, LANES>::gather_or_default(
-            &self.perm,
-            ((ii - Simd::splat(-1))
-                + Simd::gather_or_default(&self.perm, (jj - Simd::splat(-1)).cast()))
-            .cast(),
+        let gi2 = pcg_hash(
+            pcg_hash((i + Simd::splat(1)) ^ Simd::splat(self.seed[0])) + (j + Simd::splat(1))
+                ^ Simd::splat(self.seed[1]),
         );
 
         // Weights associated with the gradients at each corner
