@@ -14,37 +14,17 @@ use rand::{
 
 #[derive(Debug, Clone)]
 pub struct Simplex1d {
-    perm: [i32; 256],
+    seed: u32,
 }
 
 impl Simplex1d {
     pub const fn new() -> Self {
-        Self {
-            perm: [
-                151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36,
-                103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120, 234, 75, 0,
-                26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149, 56, 87,
-                174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48, 27, 166, 77, 146,
-                158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40,
-                244, 102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18,
-                169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64,
-                52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206,
-                59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213, 119, 248, 152, 2,
-                44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98,
-                108, 110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228, 251, 34, 242,
-                193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239, 107,
-                49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4,
-                150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66,
-                215, 61, 156, 180,
-            ],
-        }
+        Self { seed: 0 }
     }
 
     #[cfg(feature = "rand")]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        let mut perm = [0; 256];
-        perm.shuffle(rng);
-        Self { perm }
+        Self { seed: rng.gen() }
     }
 
     pub fn sample<const LANES: usize>(&self, [x]: [Simd<f32, LANES>; 1]) -> Sample<LANES, 1>
@@ -52,19 +32,18 @@ impl Simplex1d {
         LaneCount<LANES>: SupportedLaneCount,
     {
         // Gradients are selected deterministically based on the whole part of `x`
-        let ips = x.floor();
-        let i0 = ips.cast::<i32>();
-        let i1 = (i0 + Simd::splat(1)) & Simd::splat(0xFF);
+        let i = x.floor();
+        let i0 = i.cast::<i32>();
+        let i1 = i0 + Simd::splat(1);
 
         // the fractional part of x, i.e. the distance to the left gradient node. 0 ≤ x0 < 1.
-        let x0 = x - ips;
+        let x0 = x - i;
         // signed distance to the right gradient node
         let x1 = x0 - Simd::splat(1.0);
 
         // Select gradients
-        let i0 = i0 & Simd::splat(0xFF);
-        let gi0 = Simd::<i32, LANES>::gather_or_default(&self.perm, i0.cast());
-        let gi1 = Simd::<i32, LANES>::gather_or_default(&self.perm, i1.cast());
+        let gi0 = hash_1d(Simd::splat(self.seed) ^ i0.cast());
+        let gi1 = hash_1d(Simd::splat(self.seed) ^ i1.cast());
 
         // Compute the contribution from the first gradient
         // n0 = grad0 * (1 - x0^2)^4 * x0
@@ -121,11 +100,22 @@ impl Distribution<Simplex1d> for Standard {
     }
 }
 
+fn hash_1d<const LANES: usize>(v: Simd<u32, LANES>) -> Simd<u32, LANES>
+where
+    LaneCount<LANES>: SupportedLaneCount,
+{
+    // PCG hash function from "Hash Functions for GPU Rendering"
+    let state = v * Simd::splat(747796405) + Simd::splat(2891336453);
+    let word =
+        ((state >> ((state >> Simd::splat(28)) + Simd::splat(4))) ^ state) * Simd::splat(277803737);
+    (word >> Simd::splat(22)) ^ word
+}
+
 /// Generates a random integer gradient in ±7 inclusive
 ///
 /// This differs from Gustavson's well-known implementation in that gradients can be zero, and the
 /// maximum gradient is 7 rather than 8.
-fn gradient_1d<const LANES: usize>(hash: Simd<i32, LANES>) -> Simd<f32, LANES>
+fn gradient_1d<const LANES: usize>(hash: Simd<u32, LANES>) -> Simd<f32, LANES>
 where
     LaneCount<LANES>: SupportedLaneCount,
 {
