@@ -7,3 +7,10 @@ edition = "2021"
 
 [dependencies]
 rand = { version = "0.8.4", default-features = false, optional = true }
+
+[dev-dependencies]
+bencher = "0.1.5"
+
+[[bench]]
+name = "bench"
+harness = false
