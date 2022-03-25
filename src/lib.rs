@@ -111,6 +111,32 @@ where
     (word >> Simd::splat(22)) ^ word
 }
 
+fn pcg_hash_3d<const LANES: usize>(
+    [mut vx, mut vy, mut vz]: [Simd<i32, LANES>; 3],
+) -> [Simd<i32, LANES>; 3]
+where
+    LaneCount<LANES>: SupportedLaneCount,
+{
+    // PCG3D hash function from "Hash Functions for GPU Rendering"
+    vx = vx * Simd::splat(1664525u32 as i32) + Simd::splat(1013904223u32 as i32);
+    vy = vy * Simd::splat(1664525u32 as i32) + Simd::splat(1013904223u32 as i32);
+    vz = vz * Simd::splat(1664525u32 as i32) + Simd::splat(1013904223u32 as i32);
+
+    vx += vy * vz;
+    vy += vz * vx;
+    vz += vx * vy;
+
+    vx = vx ^ (vx >> Simd::splat(16));
+    vy = vy ^ (vy >> Simd::splat(16));
+    vz = vz ^ (vz >> Simd::splat(16));
+
+    vx += vy * vz;
+    vy += vz * vx;
+    vz += vx * vy;
+
+    [vx, vy, vz]
+}
+
 /// Generates a random integer gradient in ±7 inclusive
 ///
 /// This differs from Gustavson's well-known implementation in that gradients can be zero, and the
@@ -128,19 +154,17 @@ where
 
 #[derive(Debug, Clone)]
 pub struct Simplex2d {
-    seed: [i32; 2],
+    seed: i32,
 }
 
 impl Simplex2d {
     pub const fn new() -> Self {
-        Self { seed: [0; 2] }
+        Self { seed: 0 }
     }
 
     #[cfg(feature = "rand")]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self {
-            seed: [rng.gen(), rng.gen()],
-        }
+        Self { seed: rng.gen() }
     }
 
     pub fn sample<const LANES: usize>(&self, [x, y]: [Simd<f32, LANES>; 2]) -> Sample<LANES, 2>
@@ -175,15 +199,13 @@ impl Simplex2d {
         let x2 = x0 + Simd::splat(-1.0) + Simd::splat(2.0 * UNSKEW);
         let y2 = y0 + Simd::splat(-1.0) + Simd::splat(2.0 * UNSKEW);
 
-        let gi0 =
-            pcg_hash(pcg_hash(i ^ Simd::splat(self.seed[0])) + (j ^ Simd::splat(self.seed[1])));
-        let gi1 = pcg_hash(
-            pcg_hash((i - i1) ^ Simd::splat(self.seed[0])) + (j - j1) ^ Simd::splat(self.seed[1]),
-        );
-        let gi2 = pcg_hash(
-            pcg_hash((i + Simd::splat(1)) ^ Simd::splat(self.seed[0])) + (j + Simd::splat(1))
-                ^ Simd::splat(self.seed[1]),
-        );
+        let gi0 = pcg_hash_3d([i, j, Simd::splat(self.seed)])[0];
+        let gi1 = pcg_hash_3d([i - i1, j - j1, Simd::splat(self.seed)])[0];
+        let gi2 = pcg_hash_3d([
+            i + Simd::splat(1),
+            j + Simd::splat(1),
+            Simd::splat(self.seed),
+        ])[0];
 
         // Weights associated with the gradients at each corner
         // These FMA operations are equivalent to: let t = max(0, 0.5 - x*x - y*y)
