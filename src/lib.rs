@@ -525,9 +525,7 @@ where
     /// Compute hash values used by `grad3d` and `grad3d_dot`
     #[inline(always)]
     fn new(seed: i32, [i, j, k]: [Simd<i32, LANES>; 3]) -> Self {
-        let hash = i ^ j ^ k ^ Simd::splat(seed);
-        let hash = ((hash * hash) * Simd::splat(60493)) * hash;
-        let hash = (hash >> Simd::splat(13)) ^ hash;
+        let hash = pcg_hash_4d([i, j, k, Simd::splat(seed)])[0];
         let hasha13 = hash & Simd::splat(13);
         Hash3d {
             l8: hasha13.lanes_lt(Simd::splat(8)),
@@ -538,6 +536,35 @@ where
             h2: (hash & Simd::splat(2)) << Simd::splat(30),
         }
     }
+}
+
+fn pcg_hash_4d<const LANES: usize>(
+    [mut vx, mut vy, mut vz, mut vw]: [Simd<i32, LANES>; 4],
+) -> [Simd<i32, LANES>; 4]
+where
+    LaneCount<LANES>: SupportedLaneCount,
+{
+    vx = vx * Simd::splat(1664525) + Simd::splat(1013904223);
+    vy = vy * Simd::splat(1664525) + Simd::splat(1013904223);
+    vz = vz * Simd::splat(1664525) + Simd::splat(1013904223);
+    vw = vw * Simd::splat(1664525) + Simd::splat(1013904223);
+
+    vx += vy * vw;
+    vy += vz * vx;
+    vz += vx * vy;
+    vw += vy * vz;
+
+    vx = vx ^ (vx >> Simd::splat(16));
+    vy = vy ^ (vy >> Simd::splat(16));
+    vz = vz ^ (vz >> Simd::splat(16));
+    vw = vw ^ (vw >> Simd::splat(16));
+
+    vx += vy * vw;
+    vy += vz * vx;
+    vz += vx * vy;
+    vw += vy * vz;
+
+    [vx, vy, vz, vw]
 }
 
 #[derive(Debug, Copy, Clone)]
