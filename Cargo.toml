@@ -1,9 +1,19 @@
 [package]
 name = "clatter"
 version = "0.1.0"
+description = "Fast, high-quality simplex noise primitives"
+authors = ["Benjamin Saunders <ben.e.saunders@gmail.com>"]
 edition = "2021"
+license = "Apache-2.0 OR Zlib"
+repository = "https://github.com/Ralith/clatter"
+readme = "README.md"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[badges]
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 rand = { version = "0.8.4", default-features = false, optional = true }
