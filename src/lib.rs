@@ -118,9 +118,9 @@ where
     LaneCount<LANES>: SupportedLaneCount,
 {
     // PCG3D hash function from "Hash Functions for GPU Rendering"
-    vx = vx * Simd::splat(1664525u32 as i32) + Simd::splat(1013904223u32 as i32);
-    vy = vy * Simd::splat(1664525u32 as i32) + Simd::splat(1013904223u32 as i32);
-    vz = vz * Simd::splat(1664525u32 as i32) + Simd::splat(1013904223u32 as i32);
+    vx = vx * Simd::splat(1664525) + Simd::splat(1013904223);
+    vy = vy * Simd::splat(1664525) + Simd::splat(1013904223);
+    vz = vz * Simd::splat(1664525) + Simd::splat(1013904223);
 
     vx += vy * vz;
     vy += vz * vx;
@@ -544,6 +544,7 @@ fn pcg_hash_4d<const LANES: usize>(
 where
     LaneCount<LANES>: SupportedLaneCount,
 {
+    // PCG4D hash function from "Hash Functions for GPU Rendering"
     vx = vx * Simd::splat(1664525) + Simd::splat(1013904223);
     vy = vy * Simd::splat(1664525) + Simd::splat(1013904223);
     vz = vz * Simd::splat(1664525) + Simd::splat(1013904223);
