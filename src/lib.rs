@@ -171,8 +171,8 @@ impl Simplex2d {
     where
         LaneCount<LANES>: SupportedLaneCount,
     {
-        const SKEW: f32 = 0.36602540378;
-        const UNSKEW: f32 = 0.2113248654;
+        const SKEW: f32 = 0.36602540378; // (sqrt(3) - 1) / 2
+        const UNSKEW: f32 = 0.2113248654; // (3 - sqrt(3)) / 6
 
         // Skew to distort simplexes with side length sqrt(2)/sqrt(3) until they make up
         // squares
