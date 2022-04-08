@@ -1004,7 +1004,6 @@ mod tests {
     fn simplex_2d_deriv_sanity() {
         const G: Simplex2d = Simplex2d::new();
         let mut avg_err = 0.0;
-        const SEEDS: i32 = 10;
         const POINTS: i32 = 10;
         for y in 0..POINTS {
             for x in 0..POINTS {
@@ -1033,7 +1032,7 @@ mod tests {
                     + (right - (value + d[0] * H)).abs()
                     + (down - (value - d[1] * H)).abs()
                     + (up - (value + d[1] * H)).abs())
-                    / (SEEDS * POINTS * POINTS * 4) as f32;
+                    / (POINTS * POINTS * 4) as f32;
             }
         }
         assert!(avg_err < 1e-3);
