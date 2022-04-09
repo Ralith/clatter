@@ -364,12 +364,11 @@ impl Simplex3d {
         let z3 = z0 + Simd::splat(-0.5);
 
         // Compute base weight factors associated with each vertex, `0.5 - v . v` where v is the
-        // difference between the sample point and the vertex. We currently use 0.6 rather than 0.5
-        // for historical reasons. TODO: Rerun scaling factor optimization using 0.5.
-        let t0 = (Simd::splat(0.6) - x0 * x0 - y0 * y0 - z0 * z0).max(Simd::splat(0.0));
-        let t1 = (Simd::splat(0.6) - x1 * x1 - y1 * y1 - z1 * z1).max(Simd::splat(0.0));
-        let t2 = (Simd::splat(0.6) - x2 * x2 - y2 * y2 - z2 * z2).max(Simd::splat(0.0));
-        let t3 = (Simd::splat(0.6) - x3 * x3 - y3 * y3 - z3 * z3).max(Simd::splat(0.0));
+        // difference between the sample point and the vertex.
+        let t0 = (Simd::splat(0.5) - x0 * x0 - y0 * y0 - z0 * z0).max(Simd::splat(0.0));
+        let t1 = (Simd::splat(0.5) - x1 * x1 - y1 * y1 - z1 * z1).max(Simd::splat(0.0));
+        let t2 = (Simd::splat(0.5) - x2 * x2 - y2 * y2 - z2 * z2).max(Simd::splat(0.0));
+        let t3 = (Simd::splat(0.5) - x3 * x3 - y3 * y3 - z3 * z3).max(Simd::splat(0.0));
 
         // Square weights
         let t20 = t0 * t0;
@@ -410,7 +409,7 @@ impl Simplex3d {
         let v3 = t43 * g3d;
 
         // Scaling factor found by numerical optimization
-        const SCALE: f32 = 32.69587493801679;
+        const SCALE: f32 = 67.79816627147162;
         Sample {
             value: (v3 + v2 + v1 + v0) * Simd::splat(SCALE),
             derivative: {
