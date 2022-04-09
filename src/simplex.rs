@@ -7,7 +7,7 @@ use rand::{
     Rng,
 };
 
-use crate::{hash, Sample};
+use crate::{hash, grid, Sample};
 
 #[derive(Debug, Clone)]
 pub struct Simplex1d {
@@ -131,12 +131,12 @@ impl Simplex2d {
     where
         LaneCount<LANES>: SupportedLaneCount,
     {
-        const SKEW: f32 = 0.36602540378; // (sqrt(3) - 1) / 2
-        const UNSKEW: f32 = 0.2113248654; // (3 - sqrt(3)) / 6
+        let skew = grid::skew_factor(2);
+        let unskew = -grid::unskew_factor(2);
 
         // Skew to distort simplexes with side length sqrt(2)/sqrt(3) until they make up
         // squares
-        let s = (x + y) * Simd::splat(SKEW);
+        let s = (x + y) * Simd::splat(skew);
         let ips = (x + s).floor();
         let jps = (y + s).floor();
 
@@ -144,7 +144,7 @@ impl Simplex2d {
         let i = ips.cast::<i32>();
         let j = jps.cast::<i32>();
 
-        let t = (i + j).cast::<f32>() * Simd::splat(UNSKEW);
+        let t = (i + j).cast::<f32>() * Simd::splat(unskew);
 
         // Unskewed distances to the first point of the enclosing simplex
         let x0 = x - (ips - t);
@@ -154,10 +154,10 @@ impl Simplex2d {
         let j1 = y0.lanes_gt(x0).to_int();
 
         // Distances to the second and third points of the enclosing simplex
-        let x1 = x0 + i1.cast() + Simd::splat(UNSKEW);
-        let y1 = y0 + j1.cast() + Simd::splat(UNSKEW);
-        let x2 = x0 + Simd::splat(-1.0) + Simd::splat(2.0 * UNSKEW);
-        let y2 = y0 + Simd::splat(-1.0) + Simd::splat(2.0 * UNSKEW);
+        let x1 = x0 + i1.cast() + Simd::splat(unskew);
+        let y1 = y0 + j1.cast() + Simd::splat(unskew);
+        let x2 = x0 + Simd::splat(-1.0) + Simd::splat(2.0 * unskew);
+        let y2 = y0 + Simd::splat(-1.0) + Simd::splat(2.0 * unskew);
 
         let gi0 = hash::pcg_3d([i, j, Simd::splat(self.seed)])[0];
         let gi1 = hash::pcg_3d([i - i1, j - j1, Simd::splat(self.seed)])[0];
@@ -276,15 +276,15 @@ impl Simplex3d {
     where
         LaneCount<LANES>: SupportedLaneCount,
     {
-        const SKEW: f32 = 1.0 / 3.0;
-        const UNSKEW: f32 = 1.0 / 6.0;
+        let skew = grid::skew_factor(3);
+        let unskew = -grid::unskew_factor(3);
 
         const X_PRIME: i32 = 1619;
         const Y_PRIME: i32 = 31337;
         const Z_PRIME: i32 = 6791;
 
         // Find skewed simplex grid coordinates associated with the input coordinates
-        let f = (x + y + z) * Simd::splat(SKEW);
+        let f = (x + y + z) * Simd::splat(skew);
         let x0 = (x + f).floor();
         let y0 = (y + f).floor();
         let z0 = (z + f).floor();
@@ -294,7 +294,7 @@ impl Simplex3d {
         let j = y0.cast::<i32>() * Simd::splat(Y_PRIME);
         let k = z0.cast::<i32>() * Simd::splat(Z_PRIME);
 
-        let g = Simd::splat(UNSKEW) * (x0 + y0 + z0);
+        let g = Simd::splat(unskew) * (x0 + y0 + z0);
         let x0 = x - (x0 - g);
         let y0 = y - (y0 - g);
         let z0 = z - (z0 - g);
@@ -311,13 +311,13 @@ impl Simplex3d {
         let j2 = !x0_ge_y0 | y0_ge_z0;
         let k2 = !(x0_ge_z0 & y0_ge_z0);
 
-        let x1 = x0 - i1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(UNSKEW);
-        let y1 = y0 - j1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(UNSKEW);
-        let z1 = z0 - k1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(UNSKEW);
+        let x1 = x0 - i1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(unskew);
+        let y1 = y0 - j1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(unskew);
+        let z1 = z0 - k1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(unskew);
 
-        let x2 = x0 - i2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(SKEW);
-        let y2 = y0 - j2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(SKEW);
-        let z2 = z0 - k2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(SKEW);
+        let x2 = x0 - i2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(skew);
+        let y2 = y0 - j2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(skew);
+        let z2 = z0 - k2.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(skew);
 
         let x3 = x0 + Simd::splat(-0.5);
         let y3 = y0 + Simd::splat(-0.5);
@@ -512,15 +512,15 @@ impl Simplex4d {
     where
         LaneCount<LANES>: SupportedLaneCount,
     {
-        const SKEW: f32 = 0.309016994; // (sqrt(5) - 1) / 4
-        const UNSKEW: f32 = 0.138196601; // (5 - sqrt(5)) / 20
+        let skew = grid::skew_factor(4);
+        let unskew = -grid::unskew_factor(4);
 
         //
         // Determine which simplex these points lie in, and compute the distance along each axis to each
         // vertex of the simplex
         //
 
-        let s = Simd::splat(SKEW) * (x + y + z + w);
+        let s = Simd::splat(skew) * (x + y + z + w);
 
         let ips = (x + s).floor();
         let jps = (y + s).floor();
@@ -532,7 +532,7 @@ impl Simplex4d {
         let k = kps.cast::<i32>();
         let l = lps.cast::<i32>();
 
-        let t = Simd::splat(UNSKEW) * (i + j + k + l).cast();
+        let t = Simd::splat(unskew) * (i + j + k + l).cast();
         let x0 = x - (ips - t);
         let y0 = y - (jps - t);
         let z0 = z - (kps - t);
@@ -577,22 +577,22 @@ impl Simplex4d {
         let k3 = rank_z.lanes_gt(Simd::splat(0)).to_int();
         let l3 = rank_w.lanes_gt(Simd::splat(0)).to_int();
 
-        let x1 = x0 + i1.cast() + Simd::splat(UNSKEW);
-        let y1 = y0 + j1.cast() + Simd::splat(UNSKEW);
-        let z1 = z0 + k1.cast() + Simd::splat(UNSKEW);
-        let w1 = w0 + l1.cast() + Simd::splat(UNSKEW);
-        let x2 = x0 + i2.cast() + Simd::splat(2.0 * UNSKEW);
-        let y2 = y0 + j2.cast() + Simd::splat(2.0 * UNSKEW);
-        let z2 = z0 + k2.cast() + Simd::splat(2.0 * UNSKEW);
-        let w2 = w0 + l2.cast() + Simd::splat(2.0 * UNSKEW);
-        let x3 = x0 + i3.cast() + Simd::splat(3.0 * UNSKEW);
-        let y3 = y0 + j3.cast() + Simd::splat(3.0 * UNSKEW);
-        let z3 = z0 + k3.cast() + Simd::splat(3.0 * UNSKEW);
-        let w3 = w0 + l3.cast() + Simd::splat(3.0 * UNSKEW);
-        let x4 = (x0 - Simd::splat(1.0)) + Simd::splat(4.0 * UNSKEW);
-        let y4 = (y0 - Simd::splat(1.0)) + Simd::splat(4.0 * UNSKEW);
-        let z4 = (z0 - Simd::splat(1.0)) + Simd::splat(4.0 * UNSKEW);
-        let w4 = (w0 - Simd::splat(1.0)) + Simd::splat(4.0 * UNSKEW);
+        let x1 = x0 + i1.cast() + Simd::splat(unskew);
+        let y1 = y0 + j1.cast() + Simd::splat(unskew);
+        let z1 = z0 + k1.cast() + Simd::splat(unskew);
+        let w1 = w0 + l1.cast() + Simd::splat(unskew);
+        let x2 = x0 + i2.cast() + Simd::splat(2.0 * unskew);
+        let y2 = y0 + j2.cast() + Simd::splat(2.0 * unskew);
+        let z2 = z0 + k2.cast() + Simd::splat(2.0 * unskew);
+        let w2 = w0 + l2.cast() + Simd::splat(2.0 * unskew);
+        let x3 = x0 + i3.cast() + Simd::splat(3.0 * unskew);
+        let y3 = y0 + j3.cast() + Simd::splat(3.0 * unskew);
+        let z3 = z0 + k3.cast() + Simd::splat(3.0 * unskew);
+        let w3 = w0 + l3.cast() + Simd::splat(3.0 * unskew);
+        let x4 = (x0 - Simd::splat(1.0)) + Simd::splat(4.0 * unskew);
+        let y4 = (y0 - Simd::splat(1.0)) + Simd::splat(4.0 * unskew);
+        let z4 = (z0 - Simd::splat(1.0)) + Simd::splat(4.0 * unskew);
+        let w4 = (w0 - Simd::splat(1.0)) + Simd::splat(4.0 * unskew);
 
         //
         // Hash the integer coordinates
