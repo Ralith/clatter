@@ -1,5 +1,6 @@
 use std::simd::{LaneCount, Simd, SupportedLaneCount};
 
+#[inline(always)]
 pub fn pcg<const LANES: usize>(v: Simd<i32, LANES>) -> Simd<i32, LANES>
 where
     LaneCount<LANES>: SupportedLaneCount,
@@ -13,6 +14,7 @@ where
 
 // For completeness
 #[allow(dead_code)]
+#[inline(always)]
 pub fn pcg_2d<const LANES: usize>([mut vx, mut vy]: [Simd<i32, LANES>; 2]) -> [Simd<i32, LANES>; 2]
 where
     LaneCount<LANES>: SupportedLaneCount,
@@ -35,6 +37,7 @@ where
     [vx, vy]
 }
 
+#[inline(always)]
 pub fn pcg_3d<const LANES: usize>(
     [mut vx, mut vy, mut vz]: [Simd<i32, LANES>; 3],
 ) -> [Simd<i32, LANES>; 3]
@@ -61,6 +64,7 @@ where
     [vx, vy, vz]
 }
 
+#[inline(always)]
 pub fn pcg_4d<const LANES: usize>(
     [mut vx, mut vy, mut vz, mut vw]: [Simd<i32, LANES>; 4],
 ) -> [Simd<i32, LANES>; 4]

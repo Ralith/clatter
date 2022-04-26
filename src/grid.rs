@@ -1,9 +1,9 @@
-#[inline]
+#[inline(always)]
 pub fn skew_factor(dimension: usize) -> f32 {
     (((dimension + 1) as f32).sqrt() - 1.0) / dimension as f32
 }
 
-#[inline]
+#[inline(always)]
 pub fn unskew_factor(dimension: usize) -> f32 {
     ((1.0 / ((dimension + 1) as f32).sqrt()) - 1.0) / dimension as f32
 }
