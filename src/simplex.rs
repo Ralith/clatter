@@ -15,15 +15,18 @@ pub struct Simplex1d {
 }
 
 impl Simplex1d {
+    #[inline]
     pub const fn new() -> Self {
         Self { seed: 0 }
     }
 
     #[cfg(feature = "rand")]
+    #[inline]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
         Self { seed: rng.gen() }
     }
 
+    #[inline(always)]
     pub fn sample<const LANES: usize>(&self, [x]: [Simd<f32, LANES>; 1]) -> Sample<LANES, 1>
     where
         LaneCount<LANES>: SupportedLaneCount,
@@ -85,6 +88,7 @@ impl Simplex1d {
 }
 
 impl Default for Simplex1d {
+    #[inline]
     fn default() -> Self {
         Simplex1d::new()
     }
@@ -92,6 +96,7 @@ impl Default for Simplex1d {
 
 #[cfg(feature = "rand")]
 impl Distribution<Simplex1d> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Simplex1d {
         Simplex1d::random(rng)
     }
@@ -101,6 +106,7 @@ impl Distribution<Simplex1d> for Standard {
 ///
 /// This differs from Gustavson's well-known implementation in that gradients can be zero, and the
 /// maximum gradient is 7 rather than 8.
+#[inline(always)]
 fn gradient_1d<const LANES: usize>(hash: Simd<i32, LANES>) -> Simd<f32, LANES>
 where
     LaneCount<LANES>: SupportedLaneCount,
@@ -118,15 +124,18 @@ pub struct Simplex2d {
 }
 
 impl Simplex2d {
+    #[inline]
     pub const fn new() -> Self {
         Self { seed: 0 }
     }
 
     #[cfg(feature = "rand")]
+    #[inline]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
         Self { seed: rng.gen() }
     }
 
+    #[inline(always)]
     pub fn sample<const LANES: usize>(&self, [x, y]: [Simd<f32, LANES>; 2]) -> Sample<LANES, 2>
     where
         LaneCount<LANES>: SupportedLaneCount,
@@ -224,6 +233,7 @@ impl Simplex2d {
 }
 
 impl Default for Simplex2d {
+    #[inline]
     fn default() -> Self {
         Simplex2d::new()
     }
@@ -231,11 +241,13 @@ impl Default for Simplex2d {
 
 #[cfg(feature = "rand")]
 impl Distribution<Simplex2d> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Simplex2d {
         Simplex2d::random(rng)
     }
 }
 
+#[inline(always)]
 fn gradient_2d<const LANES: usize>(hash: Simd<i32, LANES>) -> [Simd<f32, LANES>; 2]
 where
     LaneCount<LANES>: SupportedLaneCount,
@@ -263,15 +275,18 @@ pub struct Simplex3d {
 }
 
 impl Simplex3d {
+    #[inline]
     pub const fn new() -> Self {
         Self { seed: 0 }
     }
 
     #[cfg(feature = "rand")]
+    #[inline]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
         Self { seed: rng.gen() }
     }
 
+    #[inline(always)]
     pub fn sample<const LANES: usize>(&self, [x, y, z]: [Simd<f32, LANES>; 3]) -> Sample<LANES, 3>
     where
         LaneCount<LANES>: SupportedLaneCount,
@@ -410,6 +425,7 @@ impl Simplex3d {
 }
 
 impl Default for Simplex3d {
+    #[inline]
     fn default() -> Self {
         Simplex3d::new()
     }
@@ -417,6 +433,7 @@ impl Default for Simplex3d {
 
 #[cfg(feature = "rand")]
 impl Distribution<Simplex3d> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Simplex3d {
         Simplex3d::random(rng)
     }
@@ -495,11 +512,13 @@ pub struct Simplex4d {
 }
 
 impl Simplex4d {
+    #[inline]
     pub const fn new() -> Self {
         Self { seed: 0 }
     }
 
     #[cfg(feature = "rand")]
+    #[inline]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
         Self { seed: rng.gen() }
     }
@@ -722,6 +741,7 @@ impl Simplex4d {
 }
 
 impl Default for Simplex4d {
+    #[inline]
     fn default() -> Self {
         Simplex4d::new()
     }
@@ -729,6 +749,7 @@ impl Default for Simplex4d {
 
 #[cfg(feature = "rand")]
 impl Distribution<Simplex4d> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Simplex4d {
         Simplex4d::random(rng)
     }
@@ -754,6 +775,7 @@ impl<const LANES: usize> Gradient4d<LANES>
 where
     LaneCount<LANES>: SupportedLaneCount,
 {
+    #[inline(always)]
     fn new(seed: i32, [i, j, k, l]: [Simd<i32, LANES>; 4]) -> Self {
         let hash = hash::pcg_4d([
             i ^ Simd::splat(seed),
@@ -775,6 +797,7 @@ where
     }
 
     /// Directly compute the dot product of the gradient vector with a vector
+    #[inline(always)]
     fn dot(&self, [x, y, z, t]: [Simd<f32, LANES>; 4]) -> Simd<f32, LANES> {
         let u = self.l24.select(x, y);
         let v = self.l16.select(y, z);
