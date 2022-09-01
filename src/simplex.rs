@@ -1,4 +1,7 @@
-use std::simd::{LaneCount, Mask, Simd, StdFloat as _, SupportedLaneCount};
+use std::simd::{
+    LaneCount, Mask, Simd, SimdFloat, SimdPartialEq, SimdPartialOrd, StdFloat as _,
+    SupportedLaneCount,
+};
 
 #[cfg(feature = "rand")]
 use rand::{
@@ -7,7 +10,7 @@ use rand::{
     Rng,
 };
 
-use crate::{hash, grid, Sample};
+use crate::{grid, hash, Sample};
 
 #[derive(Debug, Clone)]
 pub struct Simplex1d {
@@ -114,7 +117,7 @@ where
     let h = hash & Simd::splat(0xF);
     let v = (h & Simd::splat(7)).cast::<f32>();
 
-    let h_and_8 = (h & Simd::splat(8)).lanes_eq(Simd::splat(0));
+    let h_and_8 = (h & Simd::splat(8)).simd_eq(Simd::splat(0));
     h_and_8.select(v, Simd::splat(0.0) - v)
 }
 
@@ -159,8 +162,8 @@ impl Simplex2d {
         let x0 = x - (ips - t);
         let y0 = y - (jps - t);
 
-        let i1 = x0.lanes_ge(y0).to_int();
-        let j1 = y0.lanes_gt(x0).to_int();
+        let i1 = x0.simd_ge(y0).to_int();
+        let j1 = y0.simd_gt(x0).to_int();
 
         // Distances to the second and third points of the enclosing simplex
         let x1 = x0 + i1.cast() + Simd::splat(unskew);
@@ -180,13 +183,13 @@ impl Simplex2d {
         // These FMA operations are equivalent to: let t = max(0, 0.5 - x*x - y*y)
         let t0 = y0
             .mul_add(-y0, x0.mul_add(-x0, Simd::splat(0.5)))
-            .max(Simd::splat(0.0));
+            .simd_max(Simd::splat(0.0));
         let t1 = y1
             .mul_add(-y1, x1.mul_add(-x1, Simd::splat(0.5)))
-            .max(Simd::splat(0.0));
+            .simd_max(Simd::splat(0.0));
         let t2 = y2
             .mul_add(-y2, x2.mul_add(-x2, Simd::splat(0.5)))
-            .max(Simd::splat(0.0));
+            .simd_max(Simd::splat(0.0));
 
         let t20 = t0 * t0;
         let t40 = t20 * t20;
@@ -254,12 +257,12 @@ where
 {
     let h = hash & Simd::splat(7);
 
-    let mask = h.lanes_lt(Simd::splat(4));
+    let mask = h.simd_lt(Simd::splat(4));
     let x_magnitude = mask.select(Simd::splat(1.0), Simd::splat(2.0));
     let y_magnitude = mask.select(Simd::splat(2.0), Simd::splat(1.0));
 
-    let h_and_1 = (h & Simd::splat(1)).lanes_eq(Simd::splat(0));
-    let h_and_2 = (h & Simd::splat(2)).lanes_eq(Simd::splat(0));
+    let h_and_1 = (h & Simd::splat(1)).simd_eq(Simd::splat(0));
+    let h_and_2 = (h & Simd::splat(2)).simd_eq(Simd::splat(0));
 
     let gx = mask
         .select_mask(h_and_1, h_and_2)
@@ -314,9 +317,9 @@ impl Simplex3d {
         let y0 = y - (y0 - g);
         let z0 = z - (z0 - g);
 
-        let x0_ge_y0 = x0.lanes_ge(y0);
-        let y0_ge_z0 = y0.lanes_ge(z0);
-        let x0_ge_z0 = x0.lanes_ge(z0);
+        let x0_ge_y0 = x0.simd_ge(y0);
+        let y0_ge_z0 = y0.simd_ge(z0);
+        let x0_ge_z0 = x0.simd_ge(z0);
 
         let i1 = x0_ge_y0 & x0_ge_z0;
         let j1 = !x0_ge_y0 & y0_ge_z0;
@@ -340,10 +343,10 @@ impl Simplex3d {
 
         // Compute base weight factors associated with each vertex, `0.5 - v . v` where v is the
         // difference between the sample point and the vertex.
-        let t0 = (Simd::splat(0.5) - x0 * x0 - y0 * y0 - z0 * z0).max(Simd::splat(0.0));
-        let t1 = (Simd::splat(0.5) - x1 * x1 - y1 * y1 - z1 * z1).max(Simd::splat(0.0));
-        let t2 = (Simd::splat(0.5) - x2 * x2 - y2 * y2 - z2 * z2).max(Simd::splat(0.0));
-        let t3 = (Simd::splat(0.5) - x3 * x3 - y3 * y3 - z3 * z3).max(Simd::splat(0.0));
+        let t0 = (Simd::splat(0.5) - x0 * x0 - y0 * y0 - z0 * z0).simd_max(Simd::splat(0.0));
+        let t1 = (Simd::splat(0.5) - x1 * x1 - y1 * y1 - z1 * z1).simd_max(Simd::splat(0.0));
+        let t2 = (Simd::splat(0.5) - x2 * x2 - y2 * y2 - z2 * z2).simd_max(Simd::splat(0.0));
+        let t3 = (Simd::splat(0.5) - x3 * x3 - y3 * y3 - z3 * z3).simd_max(Simd::splat(0.0));
 
         // Square weights
         let t20 = t0 * t0;
@@ -465,9 +468,9 @@ where
         let hash = hash::pcg_4d([i, j, k, Simd::splat(seed)])[0];
         let hasha13 = hash & Simd::splat(13);
         Self {
-            l8: hasha13.lanes_lt(Simd::splat(8)),
-            l4: hasha13.lanes_lt(Simd::splat(2)),
-            h12_or_14: hasha13.lanes_eq(Simd::splat(12)),
+            l8: hasha13.simd_lt(Simd::splat(8)),
+            l4: hasha13.simd_lt(Simd::splat(2)),
+            h12_or_14: hasha13.simd_eq(Simd::splat(12)),
 
             h1: hash << Simd::splat(31),
             h2: (hash & Simd::splat(2)) << Simd::splat(30),
@@ -562,39 +565,39 @@ impl Simplex4d {
         let mut rank_z = Simd::splat(0);
         let mut rank_w = Simd::splat(0);
 
-        let cond = x0.lanes_gt(y0);
+        let cond = x0.simd_gt(y0);
         rank_x += cond.select(Simd::splat(1), Simd::splat(0));
         rank_y += cond.select(Simd::splat(0), Simd::splat(1));
-        let cond = x0.lanes_gt(z0);
+        let cond = x0.simd_gt(z0);
         rank_x += cond.select(Simd::splat(1), Simd::splat(0));
         rank_z += cond.select(Simd::splat(0), Simd::splat(1));
-        let cond = x0.lanes_gt(w0);
+        let cond = x0.simd_gt(w0);
         rank_x += cond.select(Simd::splat(1), Simd::splat(0));
         rank_w += cond.select(Simd::splat(0), Simd::splat(1));
-        let cond = y0.lanes_gt(z0);
+        let cond = y0.simd_gt(z0);
         rank_y += cond.select(Simd::splat(1), Simd::splat(0));
         rank_z += cond.select(Simd::splat(0), Simd::splat(1));
-        let cond = y0.lanes_gt(w0);
+        let cond = y0.simd_gt(w0);
         rank_y += cond.select(Simd::splat(1), Simd::splat(0));
         rank_w += cond.select(Simd::splat(0), Simd::splat(1));
-        let cond = z0.lanes_gt(w0);
+        let cond = z0.simd_gt(w0);
         rank_z += cond.select(Simd::splat(1), Simd::splat(0));
         rank_w += cond.select(Simd::splat(0), Simd::splat(1));
 
-        let i1 = rank_x.lanes_gt(Simd::splat(2)).to_int();
-        let j1 = rank_y.lanes_gt(Simd::splat(2)).to_int();
-        let k1 = rank_z.lanes_gt(Simd::splat(2)).to_int();
-        let l1 = rank_w.lanes_gt(Simd::splat(2)).to_int();
+        let i1 = (rank_x.simd_gt(Simd::splat(2)) as Mask<i32, LANES>).to_int();
+        let j1 = (rank_y.simd_gt(Simd::splat(2)) as Mask<i32, LANES>).to_int();
+        let k1 = (rank_z.simd_gt(Simd::splat(2)) as Mask<i32, LANES>).to_int();
+        let l1 = (rank_w.simd_gt(Simd::splat(2)) as Mask<i32, LANES>).to_int();
 
-        let i2 = rank_x.lanes_gt(Simd::splat(1)).to_int();
-        let j2 = rank_y.lanes_gt(Simd::splat(1)).to_int();
-        let k2 = rank_z.lanes_gt(Simd::splat(1)).to_int();
-        let l2 = rank_w.lanes_gt(Simd::splat(1)).to_int();
+        let i2 = (rank_x.simd_gt(Simd::splat(1)) as Mask<i32, LANES>).to_int();
+        let j2 = (rank_y.simd_gt(Simd::splat(1)) as Mask<i32, LANES>).to_int();
+        let k2 = (rank_z.simd_gt(Simd::splat(1)) as Mask<i32, LANES>).to_int();
+        let l2 = (rank_w.simd_gt(Simd::splat(1)) as Mask<i32, LANES>).to_int();
 
-        let i3 = rank_x.lanes_gt(Simd::splat(0)).to_int();
-        let j3 = rank_y.lanes_gt(Simd::splat(0)).to_int();
-        let k3 = rank_z.lanes_gt(Simd::splat(0)).to_int();
-        let l3 = rank_w.lanes_gt(Simd::splat(0)).to_int();
+        let i3 = (rank_x.simd_gt(Simd::splat(0)) as Mask<i32, LANES>).to_int();
+        let j3 = (rank_y.simd_gt(Simd::splat(0)) as Mask<i32, LANES>).to_int();
+        let k3 = (rank_z.simd_gt(Simd::splat(0)) as Mask<i32, LANES>).to_int();
+        let l3 = (rank_w.simd_gt(Simd::splat(0)) as Mask<i32, LANES>).to_int();
 
         let x1 = x0 + i1.cast() + Simd::splat(unskew);
         let y1 = y0 + j1.cast() + Simd::splat(unskew);
@@ -633,31 +636,31 @@ impl Simplex4d {
                 -w0,
                 z0.mul_add(-z0, y0.mul_add(-y0, x0.mul_add(-x0, Simd::splat(0.5)))),
             )
-            .max(Simd::splat(0.0));
+            .simd_max(Simd::splat(0.0));
         let t1 = w1
             .mul_add(
                 -w1,
                 z1.mul_add(-z1, y1.mul_add(-y1, x1.mul_add(-x1, Simd::splat(0.5)))),
             )
-            .max(Simd::splat(0.0));
+            .simd_max(Simd::splat(0.0));
         let t2 = w2
             .mul_add(
                 -w2,
                 z2.mul_add(-z2, y2.mul_add(-y2, x2.mul_add(-x2, Simd::splat(0.5)))),
             )
-            .max(Simd::splat(0.0));
+            .simd_max(Simd::splat(0.0));
         let t3 = w3
             .mul_add(
                 -w3,
                 z3.mul_add(-z3, y3.mul_add(-y3, x3.mul_add(-x3, Simd::splat(0.5)))),
             )
-            .max(Simd::splat(0.0));
+            .simd_max(Simd::splat(0.0));
         let t4 = w4
             .mul_add(
                 -w4,
                 z4.mul_add(-z4, y4.mul_add(-y4, x4.mul_add(-x4, Simd::splat(0.5)))),
             )
-            .max(Simd::splat(0.0));
+            .simd_max(Simd::splat(0.0));
 
         // Cube each weight
         let t02 = t0 * t0;
@@ -786,13 +789,13 @@ where
 
         let h = hash & Simd::splat(31);
         Self {
-            l24: Simd::splat(24).lanes_gt(h),
-            l16: Simd::splat(16).lanes_gt(h),
-            l8: Simd::splat(8).lanes_gt(h),
+            l24: Simd::splat(24).simd_gt(h),
+            l16: Simd::splat(16).simd_gt(h),
+            l8: Simd::splat(8).simd_gt(h),
 
-            sign1: Simd::splat(0).lanes_eq(h & Simd::splat(1)),
-            sign2: Simd::splat(0).lanes_eq(h & Simd::splat(2)),
-            sign3: Simd::splat(0).lanes_eq(h & Simd::splat(4)),
+            sign1: Simd::splat(0).simd_eq(h & Simd::splat(1)),
+            sign2: Simd::splat(0).simd_eq(h & Simd::splat(2)),
+            sign3: Simd::splat(0).simd_eq(h & Simd::splat(4)),
         }
     }
 
