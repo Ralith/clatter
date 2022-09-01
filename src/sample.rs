@@ -16,7 +16,7 @@ impl<const LANES: usize, const DIMENSION: usize> Sample<LANES, DIMENSION>
 where
     LaneCount<LANES>: SupportedLaneCount,
 {
-    pub const fn constant(value: Simd<f32, LANES>) -> Self {
+    pub fn constant(value: Simd<f32, LANES>) -> Self {
         Self {
             value,
             derivative: [Simd::splat(0.0); DIMENSION],
