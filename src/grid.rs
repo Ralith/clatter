@@ -295,6 +295,58 @@ pub fn unskew_factor(dimension: usize) -> f32 {
     ((1.0 / ((dimension + 1) as f32).sqrt()) - 1.0) / dimension as f32
 }
 
+/// A regular grid of n-dimensional cubes
+pub struct Square;
+
+macro_rules! impl_square {
+    ($dim:literal) => {
+        impl Grid<$dim> for Square {
+            const VERTICES: usize = 2usize.pow($dim);
+
+            type VertexArray<T> = [[T; $dim]; 2usize.pow($dim)];
+
+            #[inline(always)]
+            fn get<const LANES: usize>(
+                &self,
+                point: [Simd<f32, LANES>; $dim],
+            ) -> (
+                Self::VertexArray<Simd<i32, LANES>>,
+                Self::VertexArray<Simd<f32, LANES>>,
+            )
+            where
+                LaneCount<LANES>: SupportedLaneCount,
+            {
+                const DIMENSION: usize = $dim;
+                let base = point.map(|x| x.floor().cast());
+                let vertices = std::array::from_fn(|i| {
+                    let mut coords = base;
+                    for d in 0..DIMENSION {
+                        if i & (1 << d) != 0 {
+                            coords[d] += Simd::splat(1);
+                        }
+                    }
+                    coords
+                });
+
+                let distances = vertices.map(|v| {
+                    let mut point = point;
+                    for d in 0..DIMENSION {
+                        point[d] -= v[d].cast();
+                    }
+                    point
+                });
+
+                (vertices, distances)
+            }
+        }
+    };
+}
+
+impl_square!(1);
+impl_square!(2);
+impl_square!(3);
+impl_square!(4);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,5 +362,26 @@ mod tests {
         assert_abs_diff_eq!(unskew_factor(2), -(3.0 - 3.0f32.sqrt()) / 6.0);
         assert_abs_diff_eq!(unskew_factor(3), -1.0 / 6.0);
         assert_abs_diff_eq!(unskew_factor(4), -(5.0 - 5.0f32.sqrt()) / 20.0);
+    }
+
+    #[test]
+    fn square_smoke() {
+        let (vertices, vectors) =
+            <Square as Grid<2>>::get::<1>(&Square, [1.25, 4.75].map(Simd::splat));
+        assert_eq!(vertices.len(), 4);
+        for (vertex, vector) in [
+            ([1, 4], [0.25, 0.75]),
+            ([1, 5], [0.25, -0.25]),
+            ([2, 4], [-0.75, 0.75]),
+            ([2, 5], [-0.75, -0.25]),
+        ] {
+            let i = vertices
+                .iter()
+                .position(|&x| x == vertex.map(Simd::splat))
+                .expect("missing expected vertex");
+            for d in 0..2 {
+                assert_abs_diff_eq!(vectors[i][d][0], vector[d]);
+            }
+        }
     }
 }
