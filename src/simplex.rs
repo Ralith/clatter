@@ -34,29 +34,32 @@ impl Simplex1d {
     where
         LaneCount<LANES>: SupportedLaneCount,
     {
-        let ([[i0], [i1]], [[x0], [x1]]) = grid::Simplex.get(point);
+        let (is, xs) = grid::Simplex.get(point);
 
-        // Select gradients
-        let gi0 = hash::pcg(Simd::splat(self.seed) ^ i0.cast());
-        let gi1 = hash::pcg(Simd::splat(self.seed) ^ i1.cast());
+        let mut value = Simd::splat(0.0);
+        let mut diff_a = Simd::splat(0.0);
+        let mut diff_b = Simd::splat(0.0);
 
-        // Compute the contribution from the first gradient
-        // n0 = grad0 * (1 - x0^2)^4 * x0
-        let x20 = x0 * x0;
-        let t0 = Simd::<f32, LANES>::splat(1.0) - x20;
-        let t20 = t0 * t0;
-        let t40 = t20 * t20;
-        let gx0 = gradient_1d::<LANES>(gi0);
-        let n0 = t40 * gx0 * x0;
+        for v in 0..2 {
+            let [i] = is[v];
+            let [dx] = xs[v];
 
-        // Compute the contribution from the second gradient
-        // n1 = grad1 * (x0 - 1) * (1 - (x0 - 1)^2)^4
-        let x21 = x1 * x1;
-        let t1 = Simd::<f32, LANES>::splat(1.0) - x21;
-        let t21 = t1 * t1;
-        let t41 = t21 * t21;
-        let gx1 = gradient_1d::<LANES>(gi1);
-        let n1 = t41 * gx1 * x1;
+            // Select gradient
+            let gi = hash::pcg(Simd::splat(self.seed) ^ i.cast());
+
+            // Compute the contribution from the gradient
+            // n0 = grad0 * (1 - x0^2)^4 * x0
+            let x2 = dx * dx;
+            let t = Simd::<f32, LANES>::splat(1.0) - x2;
+            let t2 = t * t;
+            let t4 = t2 * t2;
+            let gx = gradient_1d::<LANES>(gi);
+            let n = t4 * gx * dx;
+
+            value += n;
+            diff_a += t2 * t * gx * x2;
+            diff_b += t4 * gx;
+        }
 
         // n0 + n1 =
         //    grad0 * x0 * (1 - x0^2)^4
@@ -71,13 +74,8 @@ impl Simplex1d {
         // allowing us to scale into [-1, 1]
         const SCALE: f32 = 256.0 / (81.0 * 8.0);
         Sample {
-            value: (n0 + n1) * Simd::splat(SCALE),
-            derivative: [
-                ((t20 * t0 * gx0 * x20 + t21 * t1 * gx1 * x21) * Simd::splat(-8.0)
-                    + t40 * gx0
-                    + t41 * gx1)
-                    * Simd::splat(SCALE),
-            ],
+            value: value * Simd::splat(SCALE),
+            derivative: [(diff_a * Simd::splat(-8.0) + diff_b) * Simd::splat(SCALE)],
         }
     }
 }
@@ -132,65 +130,44 @@ impl Simplex2d {
     where
         LaneCount<LANES>: SupportedLaneCount,
     {
-        let ([[i0, j0], [i1, j1], [i2, j2]], [[x0, y0], [x1, y1], [x2, y2]]) =
-            grid::Simplex.get(point);
+        let (is, xs) = grid::Simplex.get(point);
 
-        let gi0 = hash::pcg_3d([i0, j0, Simd::splat(self.seed)])[0];
-        let gi1 = hash::pcg_3d([i1, j1, Simd::splat(self.seed)])[0];
-        let gi2 = hash::pcg_3d([i2, j2, Simd::splat(self.seed)])[0];
+        let mut value = Simd::splat(0.0);
+        let mut diff_a = [Simd::splat(0.0); 2];
+        let mut diff_b = [Simd::splat(0.0); 2];
 
-        // Weights associated with the gradients at each corner
-        // These FMA operations are equivalent to: let t = max(0, 0.5 - x*x - y*y)
-        let t0 = y0
-            .mul_add(-y0, x0.mul_add(-x0, Simd::splat(0.5)))
-            .simd_max(Simd::splat(0.0));
-        let t1 = y1
-            .mul_add(-y1, x1.mul_add(-x1, Simd::splat(0.5)))
-            .simd_max(Simd::splat(0.0));
-        let t2 = y2
-            .mul_add(-y2, x2.mul_add(-x2, Simd::splat(0.5)))
-            .simd_max(Simd::splat(0.0));
+        for v in 0..3 {
+            let gi = hash::pcg_3d([is[v][0], is[v][1], Simd::splat(self.seed)])[0];
 
-        let t20 = t0 * t0;
-        let t40 = t20 * t20;
-        let t21 = t1 * t1;
-        let t41 = t21 * t21;
-        let t22 = t2 * t2;
-        let t42 = t22 * t22;
+            // Weights associated with the gradients at each corner
+            // These FMA operations are equivalent to: let t = max(0, 0.5 - x*x - y*y)
+            let [dx, dy] = xs[v];
+            let t = dy
+                .mul_add(-dy, dx.mul_add(-dx, Simd::splat(0.5)))
+                .simd_max(Simd::splat(0.0));
 
-        let [gx0, gy0] = gradient_2d(gi0);
-        let g0 = gx0 * x0 + gy0 * y0;
-        let n0 = t40 * g0;
-        let [gx1, gy1] = gradient_2d(gi1);
-        let g1 = gx1 * x1 + gy1 * y1;
-        let n1 = t41 * g1;
-        let [gx2, gy2] = gradient_2d(gi2);
-        let g2 = gx2 * x2 + gy2 * y2;
-        let n2 = t42 * g2;
+            let t2 = t * t;
+            let t4 = t2 * t2;
+
+            let [gx, gy] = gradient_2d(gi);
+            let g = gx * dx + gy * dy;
+            let n = t4 * g;
+            value += n;
+
+            let temp = t2 * t * g;
+            diff_a[0] += temp * dx;
+            diff_a[1] += temp * dy;
+            diff_b[0] += t4 * gx;
+            diff_b[1] += t4 * gy;
+        }
 
         // Scaling factor found by numerical optimization
         const SCALE: f32 = 45.26450774985561631259;
-
         Sample {
-            value: (n0 + n1 + n2) * Simd::splat(SCALE),
-            derivative: {
-                let temp0 = t20 * t0 * g0;
-                let mut dnoise_dx = temp0 * x0;
-                let mut dnoise_dy = temp0 * y0;
-                let temp1 = t21 * t1 * g1;
-                dnoise_dx += temp1 * x1;
-                dnoise_dy += temp1 * y1;
-                let temp2 = t22 * t2 * g2;
-                dnoise_dx += temp2 * x2;
-                dnoise_dy += temp2 * y2;
-                dnoise_dx *= Simd::splat(-8.0);
-                dnoise_dy *= Simd::splat(-8.0);
-                dnoise_dx += t40 * gx0 + t41 * gx1 + t42 * gx2;
-                dnoise_dy += t40 * gy0 + t41 * gy1 + t42 * gy2;
-                dnoise_dx *= Simd::splat(SCALE);
-                dnoise_dy *= Simd::splat(SCALE);
-                [dnoise_dx, dnoise_dy]
-            },
+            value: value * Simd::splat(SCALE),
+            derivative: std::array::from_fn(|i| {
+                (diff_a[i] * Simd::splat(-8.0) + diff_b[i]) * Simd::splat(SCALE)
+            }),
         }
     }
 }
@@ -254,82 +231,46 @@ impl Simplex3d {
     where
         LaneCount<LANES>: SupportedLaneCount,
     {
-        let ([p0, p1, p2, p3], [[x0, y0, z0], [x1, y1, z1], [x2, y2, z2], [x3, y3, z3]]) =
-            grid::Simplex.get(point);
+        let (is, xs) = grid::Simplex.get(point);
 
-        // Compute base weight factors associated with each vertex, `0.5 - v . v` where v is the
-        // difference between the sample point and the vertex.
-        let t0 = (Simd::splat(0.5) - x0 * x0 - y0 * y0 - z0 * z0).simd_max(Simd::splat(0.0));
-        let t1 = (Simd::splat(0.5) - x1 * x1 - y1 * y1 - z1 * z1).simd_max(Simd::splat(0.0));
-        let t2 = (Simd::splat(0.5) - x2 * x2 - y2 * y2 - z2 * z2).simd_max(Simd::splat(0.0));
-        let t3 = (Simd::splat(0.5) - x3 * x3 - y3 * y3 - z3 * z3).simd_max(Simd::splat(0.0));
+        let mut value = Simd::splat(0.0);
+        let mut diff_a = [Simd::splat(0.0); 3];
+        let mut diff_b = [Simd::splat(0.0); 3];
 
-        // Square weights
-        let t20 = t0 * t0;
-        let t21 = t1 * t1;
-        let t22 = t2 * t2;
-        let t23 = t3 * t3;
+        for v in 0..4 {
+            let [dx, dy, dz] = xs[v];
 
-        // ...twice!
-        let t40 = t20 * t20;
-        let t41 = t21 * t21;
-        let t42 = t22 * t22;
-        let t43 = t23 * t23;
+            // Compute base weight factors associated with each vertex, `0.5 - v . v` where v is the
+            // difference between the sample point and the vertex.
+            let t = (Simd::splat(0.5) - dx * dx - dy * dy - dz * dz).simd_max(Simd::splat(0.0));
 
-        // Compute contribution from each vertex
-        let g0 = Gradient3d::new(self.seed, p0);
-        let g0d = g0.dot([x0, y0, z0]);
-        let v0 = t40 * g0d;
+            let t2 = t * t;
+            let t4 = t2 * t2;
 
-        let g1 = Gradient3d::new(self.seed, p1);
-        let g1d = g1.dot([x1, y1, z1]);
-        let v1 = t41 * g1d;
+            // Compute contribution from each vertex
+            let g = Gradient3d::new(self.seed, is[v]);
+            let gd = g.dot([dx, dy, dz]);
+            let v = t4 * gd;
 
-        let g2 = Gradient3d::new(self.seed, p2);
-        let g2d = g2.dot([x2, y2, z2]);
-        let v2 = t42 * g2d;
+            value += v;
 
-        let g3 = Gradient3d::new(self.seed, p3);
-        let g3d = g3.dot([x3, y3, z3]);
-        let v3 = t43 * g3d;
+            let temp = t2 * t * gd;
+            let offset = [dx, dy, dz];
+            let gv = g.vector();
+            for i in 0..3 {
+                diff_a[i] += temp * offset[i];
+                diff_b[i] += t4 * gv[i];
+            }
+        }
 
         // Scaling factor found by numerical optimization
         const SCALE: f32 = 67.79816627147162;
+
         Sample {
-            value: (v3 + v2 + v1 + v0) * Simd::splat(SCALE),
-            derivative: {
-                let temp0 = t20 * t0 * g0d;
-                let mut dnoise_dx = temp0 * x0;
-                let mut dnoise_dy = temp0 * y0;
-                let mut dnoise_dz = temp0 * z0;
-                let temp1 = t21 * t1 * g1d;
-                dnoise_dx += temp1 * x1;
-                dnoise_dy += temp1 * y1;
-                dnoise_dz += temp1 * z1;
-                let temp2 = t22 * t2 * g2d;
-                dnoise_dx += temp2 * x2;
-                dnoise_dy += temp2 * y2;
-                dnoise_dz += temp2 * z2;
-                let temp3 = t23 * t3 * g3d;
-                dnoise_dx += temp3 * x3;
-                dnoise_dy += temp3 * y3;
-                dnoise_dz += temp3 * z3;
-                dnoise_dx *= Simd::splat(-8.0);
-                dnoise_dy *= Simd::splat(-8.0);
-                dnoise_dz *= Simd::splat(-8.0);
-                let [gx0, gy0, gz0] = g0.vector();
-                let [gx1, gy1, gz1] = g1.vector();
-                let [gx2, gy2, gz2] = g2.vector();
-                let [gx3, gy3, gz3] = g3.vector();
-                dnoise_dx += t40 * gx0 + t41 * gx1 + t42 * gx2 + t43 * gx3;
-                dnoise_dy += t40 * gy0 + t41 * gy1 + t42 * gy2 + t43 * gy3;
-                dnoise_dz += t40 * gz0 + t41 * gz1 + t42 * gz2 + t43 * gz3;
-                // Scale into range
-                dnoise_dx *= Simd::splat(SCALE);
-                dnoise_dy *= Simd::splat(SCALE);
-                dnoise_dz *= Simd::splat(SCALE);
-                [dnoise_dx, dnoise_dy, dnoise_dz]
-            },
+            value: value * Simd::splat(SCALE),
+            derivative: std::array::from_fn(|i| {
+                (diff_a[i] * Simd::splat(-8.0) + diff_b[i]) * Simd::splat(SCALE)
+            }),
         }
     }
 }
@@ -438,134 +379,51 @@ impl Simplex4d {
     where
         LaneCount<LANES>: SupportedLaneCount,
     {
-        let (
-            [p0, p1, p2, p3, p4],
-            [[x0, y0, z0, w0], [x1, y1, z1, w1], [x2, y2, z2, w2], [x3, y3, z3, w3], [x4, y4, z4, w4]],
-        ) = grid::Simplex.get(point);
+        let (is, xs) = grid::Simplex.get(point);
 
-        //
-        // Hash the integer coordinates
-        //
+        let mut value = Simd::splat(0.0);
+        let mut diff_a = [Simd::splat(0.0); 4];
+        let mut diff_b = [Simd::splat(0.0); 4];
 
-        let gi0 = Gradient4d::new(self.seed, p0);
-        let gi1 = Gradient4d::new(self.seed, p1);
-        let gi2 = Gradient4d::new(self.seed, p2);
-        let gi3 = Gradient4d::new(self.seed, p3);
-        let gi4 = Gradient4d::new(self.seed, p4);
+        for v in 0..5 {
+            // Hash the integer coordinates
+            let gi = Gradient4d::new(self.seed, is[v]);
 
-        //
-        // Compute base weight factors associated with each vertex
-        //
+            // Compute base weight factors associated with the vertex
+            // These FMA operations are equivalent to: let t = max(0, 0.5 - x*x - y*y - z*z - w*w)
+            let [dx, dy, dz, dw] = xs[v];
+            let t = dw
+                .mul_add(
+                    -dw,
+                    dz.mul_add(-dz, dy.mul_add(-dy, dx.mul_add(-dx, Simd::splat(0.5)))),
+                )
+                .simd_max(Simd::splat(0.0));
 
-        // These FMA operations are equivalent to: let t = max(0, 0.5 - x*x - y*y - z*z - w*w)
-        let t0 = w0
-            .mul_add(
-                -w0,
-                z0.mul_add(-z0, y0.mul_add(-y0, x0.mul_add(-x0, Simd::splat(0.5)))),
-            )
-            .simd_max(Simd::splat(0.0));
-        let t1 = w1
-            .mul_add(
-                -w1,
-                z1.mul_add(-z1, y1.mul_add(-y1, x1.mul_add(-x1, Simd::splat(0.5)))),
-            )
-            .simd_max(Simd::splat(0.0));
-        let t2 = w2
-            .mul_add(
-                -w2,
-                z2.mul_add(-z2, y2.mul_add(-y2, x2.mul_add(-x2, Simd::splat(0.5)))),
-            )
-            .simd_max(Simd::splat(0.0));
-        let t3 = w3
-            .mul_add(
-                -w3,
-                z3.mul_add(-z3, y3.mul_add(-y3, x3.mul_add(-x3, Simd::splat(0.5)))),
-            )
-            .simd_max(Simd::splat(0.0));
-        let t4 = w4
-            .mul_add(
-                -w4,
-                z4.mul_add(-z4, y4.mul_add(-y4, x4.mul_add(-x4, Simd::splat(0.5)))),
-            )
-            .simd_max(Simd::splat(0.0));
+            // Cube weight
+            let t2 = t * t;
+            let t4 = t2 * t2;
 
-        // Cube each weight
-        let t02 = t0 * t0;
-        let t04 = t02 * t02;
-        let t12 = t1 * t1;
-        let t14 = t12 * t12;
-        let t22 = t2 * t2;
-        let t24 = t22 * t22;
-        let t32 = t3 * t3;
-        let t34 = t32 * t32;
-        let t42 = t4 * t4;
-        let t44 = t42 * t42;
+            // Compute gradient's contribution
+            let gd = gi.dot(xs[v]);
+            let n = t4 * gd;
 
-        // Compute contributions from each gradient
-        let g0d = gi0.dot([x0, y0, z0, w0]);
-        let g1d = gi1.dot([x1, y1, z1, w1]);
-        let g2d = gi2.dot([x2, y2, z2, w2]);
-        let g3d = gi3.dot([x3, y3, z3, w3]);
-        let g4d = gi4.dot([x4, y4, z4, w4]);
-
-        let n0 = t04 * g0d;
-        let n1 = t14 * g1d;
-        let n2 = t24 * g2d;
-        let n3 = t34 * g3d;
-        let n4 = t44 * g4d;
+            value += n;
+            let temp = t2 * t * gd;
+            let gv = gi.vector();
+            for i in 0..4 {
+                diff_a[i] += temp * xs[v][i];
+                diff_b[i] += t4 * gv[i];
+            }
+        }
 
         // Scaling factor found by numerical optimization
         const SCALE: f32 = 62.77772078955791;
+
         Sample {
-            value: (n0 + n1 + n2 + n3 + n4) * Simd::splat(SCALE),
-            derivative: {
-                let temp = t02 * t0 * g0d;
-                let mut dvdx = temp * x0;
-                let mut dvdy = temp * y0;
-                let mut dvdz = temp * z0;
-                let mut dvdw = temp * w0;
-
-                let temp = t12 * t1 * g1d;
-                dvdx += temp * x1;
-                dvdy += temp * y1;
-                dvdz += temp * z1;
-                dvdw += temp * w1;
-
-                let temp = t22 * t2 * g2d;
-                dvdx += temp * x2;
-                dvdy += temp * y2;
-                dvdz += temp * z2;
-                dvdw += temp * w2;
-
-                let temp = t32 * t3 * g3d;
-                dvdx += temp * x3;
-                dvdy += temp * y3;
-                dvdz += temp * z3;
-                dvdw += temp * w3;
-
-                let temp = t42 * t4 * g4d;
-                dvdx += temp * x4;
-                dvdy += temp * y4;
-                dvdz += temp * z4;
-                dvdw += temp * w4;
-
-                dvdx *= Simd::splat(-8.0);
-                dvdy *= Simd::splat(-8.0);
-                dvdz *= Simd::splat(-8.0);
-                dvdw *= Simd::splat(-8.0);
-
-                let g0 = gi0.vector();
-                let g1 = gi1.vector();
-                let g2 = gi2.vector();
-                let g3 = gi3.vector();
-                let g4 = gi4.vector();
-                dvdx += t04 * g0[0] + t14 * g1[0] + t24 * g2[0] + t34 * g3[0] + t44 * g4[0];
-                dvdy += t04 * g0[1] + t14 * g1[1] + t24 * g2[1] + t34 * g3[1] + t44 * g4[1];
-                dvdz += t04 * g0[2] + t14 * g1[2] + t24 * g2[2] + t34 * g3[2] + t44 * g4[2];
-                dvdw += t04 * g0[3] + t14 * g1[3] + t24 * g2[3] + t34 * g3[3] + t44 * g4[3];
-
-                [dvdx, dvdy, dvdz, dvdw].map(|x| x * Simd::splat(SCALE))
-            },
+            value: value * Simd::splat(SCALE),
+            derivative: std::array::from_fn(|i| {
+                (diff_a[i] * Simd::splat(-8.0) + diff_b[i]) * Simd::splat(SCALE)
+            }),
         }
     }
 }
