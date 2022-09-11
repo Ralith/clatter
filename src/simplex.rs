@@ -77,7 +77,7 @@ impl Simplex1d {
         // for 0 ≤ x0 < 1. This can be done by root-finding on the derivative, obtaining 81 / 256 when
         // x0 = 0.5, which we finally multiply by the maximum gradient to get the maximum value,
         // allowing us to scale into [-1, 1]
-        const SCALE: f32 = 256.0 / (81.0 * 7.0);
+        const SCALE: f32 = 256.0 / (81.0 * 8.0);
         Sample {
             value: (n0 + n1) * Simd::splat(SCALE),
             derivative: [
@@ -105,17 +105,14 @@ impl Distribution<Simplex1d> for Standard {
     }
 }
 
-/// Generates a random integer gradient in ±7 inclusive
-///
-/// This differs from Gustavson's well-known implementation in that gradients can be zero, and the
-/// maximum gradient is 7 rather than 8.
+/// Generates a nonzero random integer gradient in ±8 inclusive
 #[inline(always)]
 fn gradient_1d<const LANES: usize>(hash: Simd<i32, LANES>) -> Simd<f32, LANES>
 where
     LaneCount<LANES>: SupportedLaneCount,
 {
     let h = hash & Simd::splat(0xF);
-    let v = (h & Simd::splat(7)).cast::<f32>();
+    let v = (Simd::splat(1) + (h & Simd::splat(7))).cast::<f32>();
 
     let h_and_8 = (h & Simd::splat(8)).simd_eq(Simd::splat(0));
     h_and_8.select(v, Simd::splat(0.0) - v)
