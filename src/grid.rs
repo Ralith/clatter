@@ -113,10 +113,6 @@ impl Grid<3> for Simplex {
         let skew = skew_factor(3);
         let unskew = -unskew_factor(3);
 
-        const X_PRIME: i32 = 1619;
-        const Y_PRIME: i32 = 31337;
-        const Z_PRIME: i32 = 6791;
-
         // Find skewed simplex grid coordinates associated with the input coordinates
         let f = (x + y + z) * Simd::splat(skew);
         let x0 = (x + f).floor();
@@ -124,9 +120,9 @@ impl Grid<3> for Simplex {
         let z0 = (z + f).floor();
 
         // Integer grid coordinates
-        let i = x0.cast::<i32>() * Simd::splat(X_PRIME);
-        let j = y0.cast::<i32>() * Simd::splat(Y_PRIME);
-        let k = z0.cast::<i32>() * Simd::splat(Z_PRIME);
+        let i = x0.cast::<i32>();
+        let j = y0.cast::<i32>();
+        let k = z0.cast::<i32>();
 
         let g = Simd::splat(unskew) * (x0 + y0 + z0);
         let x0 = x - (x0 - g);
@@ -145,17 +141,17 @@ impl Grid<3> for Simplex {
         let j2 = !x0_ge_y0 | y0_ge_z0;
         let k2 = !(x0_ge_z0 & y0_ge_z0);
 
-        let v1x = i + i1.select(Simd::splat(X_PRIME), Simd::splat(0));
-        let v1y = j + j1.select(Simd::splat(Y_PRIME), Simd::splat(0));
-        let v1z = k + k1.select(Simd::splat(Z_PRIME), Simd::splat(0));
+        let v1x = i + i1.select(Simd::splat(1), Simd::splat(0));
+        let v1y = j + j1.select(Simd::splat(1), Simd::splat(0));
+        let v1z = k + k1.select(Simd::splat(1), Simd::splat(0));
 
-        let v2x = i + i2.select(Simd::splat(X_PRIME), Simd::splat(0));
-        let v2y = j + j2.select(Simd::splat(Y_PRIME), Simd::splat(0));
-        let v2z = k + k2.select(Simd::splat(Z_PRIME), Simd::splat(0));
+        let v2x = i + i2.select(Simd::splat(1), Simd::splat(0));
+        let v2y = j + j2.select(Simd::splat(1), Simd::splat(0));
+        let v2z = k + k2.select(Simd::splat(1), Simd::splat(0));
 
-        let v3x = i + Simd::splat(X_PRIME);
-        let v3y = j + Simd::splat(Y_PRIME);
-        let v3z = k + Simd::splat(Z_PRIME);
+        let v3x = i + Simd::splat(1);
+        let v3y = j + Simd::splat(1);
+        let v3z = k + Simd::splat(1);
 
         let x1 = x0 - i1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(unskew);
         let y1 = y0 - j1.select(Simd::splat(1.0), Simd::splat(0.0)) + Simd::splat(unskew);
