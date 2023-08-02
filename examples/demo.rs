@@ -1,7 +1,7 @@
 #![feature(portable_simd)]
 
 use std::{
-    simd::{LaneCount, Simd, SupportedLaneCount},
+    simd::{LaneCount, Simd, SimdFloat, SupportedLaneCount},
     time::Instant,
 };
 

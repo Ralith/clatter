@@ -1,4 +1,6 @@
-use std::simd::{LaneCount, Mask, Simd, SimdPartialOrd, StdFloat as _, SupportedLaneCount};
+use std::simd::{
+    LaneCount, Mask, Simd, SimdFloat, SimdInt, SimdPartialOrd, StdFloat as _, SupportedLaneCount,
+};
 
 /// A distribution of points across a space
 pub trait Grid<const DIMENSION: usize> {

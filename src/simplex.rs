@@ -1,5 +1,5 @@
 use std::simd::{
-    LaneCount, Mask, Simd, SimdFloat, SimdPartialEq, SimdPartialOrd, StdFloat as _,
+    LaneCount, Mask, Simd, SimdFloat, SimdInt, SimdPartialEq, SimdPartialOrd, StdFloat as _,
     SupportedLaneCount,
 };
 

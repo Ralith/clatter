@@ -1,4 +1,4 @@
-#![feature(portable_simd, generic_associated_types)]
+#![feature(portable_simd)]
 
 mod grid;
 mod hash;
