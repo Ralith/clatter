@@ -1,5 +1,7 @@
 use std::simd::{
-    LaneCount, Mask, Simd, SimdFloat, SimdInt, SimdPartialOrd, StdFloat as _, SupportedLaneCount,
+    cmp::SimdPartialOrd,
+    num::{SimdFloat, SimdInt},
+    LaneCount, Mask, Simd, StdFloat as _, SupportedLaneCount,
 };
 
 /// A distribution of points across a space
