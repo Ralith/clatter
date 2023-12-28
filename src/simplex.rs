@@ -1,6 +1,7 @@
 use std::simd::{
-    LaneCount, Mask, Simd, SimdFloat, SimdInt, SimdPartialEq, SimdPartialOrd, StdFloat as _,
-    SupportedLaneCount,
+    cmp::{SimdPartialEq, SimdPartialOrd},
+    num::{SimdFloat, SimdInt},
+    LaneCount, Mask, Simd, StdFloat as _, SupportedLaneCount,
 };
 
 #[cfg(feature = "rand")]
