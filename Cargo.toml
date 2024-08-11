@@ -22,7 +22,7 @@ rand = { version = "0.8.4", default-features = false, optional = true }
 approx = "0.5"
 bencher = "0.1.5"
 lodepng = "3.6.1"
-clap = { version = "3.1.8", features = ["derive"] }
+clap = { version = "4.5.15", features = ["derive"] }
 
 [[bench]]
 name = "bench"

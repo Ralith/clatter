@@ -23,7 +23,7 @@ struct Opts {
     #[clap(short, default_value = "4")]
     octaves: usize,
     /// How smooth the noise should be (sensible values are around 0.5-1)
-    #[clap(short, default_value = "1.0")]
+    #[clap(short = 'e', default_value = "1.0")]
     hurst_exponent: f32,
     /// Frequency ratio between successive octaves
     #[clap(short, default_value = "1.9")]
