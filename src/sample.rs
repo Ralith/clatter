@@ -1,42 +1,23 @@
-use std::{
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign},
-    simd::{LaneCount, Simd, SupportedLaneCount},
-};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign};
+
+use fearless_simd::{Simd, SimdBase};
 
 #[derive(Debug, Copy, Clone)]
-pub struct Sample<const LANES: usize, const DIMENSION: usize>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
-    pub value: Simd<f32, LANES>,
-    pub derivative: [Simd<f32, LANES>; DIMENSION],
+pub struct Sample<S: Simd, const DIMENSION: usize> {
+    pub value: S::f32s,
+    pub derivative: [S::f32s; DIMENSION],
 }
 
-impl<const LANES: usize, const DIMENSION: usize> Sample<LANES, DIMENSION>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
-    pub fn constant(value: Simd<f32, LANES>) -> Self {
+impl<S: Simd, const DIMENSION: usize> Sample<S, DIMENSION> {
+    pub fn constant(value: S::f32s) -> Self {
         Self {
             value,
-            derivative: [Simd::splat(0.0); DIMENSION],
+            derivative: [S::f32s::splat(value.witness(), 0.0); DIMENSION],
         }
     }
 }
 
-impl<const LANES: usize, const DIMENSION: usize> Default for Sample<LANES, DIMENSION>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
-    fn default() -> Self {
-        Self::constant(Simd::splat(0.0))
-    }
-}
-
-impl<const LANES: usize, const DIMENSION: usize> AddAssign<Self> for Sample<LANES, DIMENSION>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
+impl<S: Simd, const DIMENSION: usize> AddAssign<Self> for Sample<S, DIMENSION> {
     fn add_assign(&mut self, other: Self) {
         self.value += other.value;
         for i in 0..DIMENSION {
@@ -45,10 +26,7 @@ where
     }
 }
 
-impl<const LANES: usize, const DIMENSION: usize> Add<Self> for Sample<LANES, DIMENSION>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
+impl<S: Simd, const DIMENSION: usize> Add<Self> for Sample<S, DIMENSION> {
     type Output = Self;
     fn add(mut self, other: Self) -> Self {
         self += other;
@@ -56,12 +34,8 @@ where
     }
 }
 
-impl<const LANES: usize, const DIMENSION: usize> MulAssign<Simd<f32, LANES>>
-    for Sample<LANES, DIMENSION>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
-    fn mul_assign(&mut self, other: Simd<f32, LANES>) {
+impl<S: Simd, const DIMENSION: usize> MulAssign<S::f32s> for Sample<S, DIMENSION> {
+    fn mul_assign(&mut self, other: S::f32s) {
         self.value *= other;
         for i in 0..DIMENSION {
             self.derivative[i] *= other;
@@ -69,23 +43,16 @@ where
     }
 }
 
-impl<const LANES: usize, const DIMENSION: usize> Mul<Simd<f32, LANES>> for Sample<LANES, DIMENSION>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
+impl<S: Simd, const DIMENSION: usize> Mul<S::f32s> for Sample<S, DIMENSION> {
     type Output = Self;
-    fn mul(mut self, other: Simd<f32, LANES>) -> Self {
+    fn mul(mut self, other: S::f32s) -> Self {
         self *= other;
         self
     }
 }
 
-impl<const LANES: usize, const DIMENSION: usize> DivAssign<Simd<f32, LANES>>
-    for Sample<LANES, DIMENSION>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
-    fn div_assign(&mut self, other: Simd<f32, LANES>) {
+impl<S: Simd, const DIMENSION: usize> DivAssign<S::f32s> for Sample<S, DIMENSION> {
+    fn div_assign(&mut self, other: S::f32s) {
         self.value /= other;
         for i in 0..DIMENSION {
             self.derivative[i] /= other;
@@ -93,12 +60,9 @@ where
     }
 }
 
-impl<const LANES: usize, const DIMENSION: usize> Div<Simd<f32, LANES>> for Sample<LANES, DIMENSION>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
+impl<S: Simd, const DIMENSION: usize> Div<S::f32s> for Sample<S, DIMENSION> {
     type Output = Self;
-    fn div(mut self, other: Simd<f32, LANES>) -> Self {
+    fn div(mut self, other: S::f32s) -> Self {
         self /= other;
         self
     }
