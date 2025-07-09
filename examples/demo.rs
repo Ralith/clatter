@@ -1,13 +1,9 @@
-#![feature(portable_simd)]
-
-use std::{
-    simd::{num::SimdFloat, LaneCount, Simd, SupportedLaneCount},
-    time::Instant,
-};
+use std::time::Instant;
 
 use clap::Parser;
 
 use clatter::{Sample, Simplex2d};
+use fearless_simd::{dispatch, Simd, SimdBase, SimdFloat};
 
 /// Compute a patch of fractal brownian motion noise
 #[derive(Parser)]
@@ -35,7 +31,8 @@ fn main() {
     let mut pixels = Vec::with_capacity(opts.resolution * opts.resolution);
 
     let start = Instant::now();
-    generate(&opts, &mut pixels);
+    let level = fearless_simd::Level::new();
+    dispatch!(level, simd => generate(simd, &opts, &mut pixels));
     println!(
         "generated {} samples in {:?} ({:?} per sample)",
         pixels.len(),
@@ -55,95 +52,50 @@ fn main() {
     .unwrap();
 }
 
-fn generate(opts: &Opts, pixels: &mut Vec<u8>) {
-    #[cfg(target_arch = "x86_64")]
-    {
-        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-            println!("using AVX2 + FMA");
-            unsafe {
-                generate_avx2(opts, pixels);
-            }
-            return;
-        } else if is_x86_feature_detected!("sse4.2") {
-            println!("using SSE4.2");
-            unsafe {
-                generate_sse(opts, pixels);
-            }
-            return;
-        }
-    }
-    println!("no runtime features detected");
-    generate_inner::<4>(opts, pixels);
-}
-
-#[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "avx2,fma")]
-unsafe fn generate_avx2(opts: &Opts, pixels: &mut Vec<u8>) {
-    generate_inner::<8>(opts, pixels);
-}
-
-#[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "sse4.2")]
-unsafe fn generate_sse(opts: &Opts, pixels: &mut Vec<u8>) {
-    generate_inner::<4>(opts, pixels);
-}
-
-#[inline(always)]
-fn generate_inner<const LANES: usize>(opts: &Opts, pixels: &mut Vec<u8>)
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
+fn generate<S: Simd>(simd: S, opts: &Opts, pixels: &mut Vec<u8>) {
     let step = opts.scale / opts.resolution as f32;
     for y in 0..opts.resolution {
         let mut x = 0;
         while x < opts.resolution {
-            let mut px = Simd::splat(x as f32 * step);
-            for i in 1..LANES {
-                px[i] += step * i as f32;
+            let mut px = S::f32s::splat(simd, x as f32 * step);
+            for i in 1..S::f32s::N {
+                px.as_mut_slice()[i] += step * i as f32;
             }
-            let py = Simd::splat(y as f32 * step);
+            let py = S::f32s::splat(simd, y as f32 * step);
 
-            let sample = fbm::<LANES>(
+            let sample = fbm::<S>(
                 opts.octaves,
                 (-opts.hurst_exponent).exp2(),
                 opts.lacunarity,
                 [px, py],
             );
-            let value = (Simd::splat(255.0) * (sample.value + Simd::splat(1.0)) / Simd::splat(2.0))
-                .cast::<u8>();
-            for i in 0..LANES {
+            let value = ((sample.value + 1.0) * 255.0 / 2.0).to_int::<S::u32s>();
+            for i in 0..S::f32s::N {
                 if x + i >= opts.resolution {
                     break;
                 }
-                pixels.push(value[i]);
+                pixels.push(value.as_slice()[i] as u8);
             }
-            x += LANES;
+            x += S::f32s::N;
         }
     }
 }
 
 #[inline(always)]
-fn fbm<const LANES: usize>(
-    octaves: usize,
-    gain: f32,
-    lacunarity: f32,
-    point: [Simd<f32, LANES>; 2],
-) -> Sample<LANES, 2>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
+fn fbm<S: Simd>(octaves: usize, gain: f32, lacunarity: f32, point: [S::f32s; 2]) -> Sample<S, 2> {
     const NOISE: Simplex2d = Simplex2d::new();
+    let simd = point[0].witness();
 
-    let mut result = Sample::default();
+    let mut result = Sample::constant(S::f32s::splat(simd, 0.0));
 
     let mut frequency = 1.0;
     let mut amplitude = 1.0;
     let mut scale = 0.0;
     for _ in 0..octaves {
-        result += NOISE.sample(point.map(|x| x * Simd::splat(frequency))) * Simd::splat(amplitude);
+        result += NOISE.sample::<S>(point.map(|x| x * frequency)) * S::f32s::splat(simd, amplitude);
         scale += amplitude;
         frequency *= lacunarity;
         amplitude *= gain;
     }
-    result / Simd::splat(scale)
+    result / S::f32s::splat(simd, scale)
 }

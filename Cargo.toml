@@ -16,6 +16,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
+fearless_simd = "0.3"
 rand = { version = "0.8.4", default-features = false, optional = true }
 
 [dev-dependencies]
@@ -27,3 +28,4 @@ clap = { version = "4.5.15", features = ["derive"] }
 [[bench]]
 name = "bench"
 harness = false
+

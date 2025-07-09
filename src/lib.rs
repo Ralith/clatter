@@ -1,5 +1,3 @@
-#![feature(portable_simd)]
-
 mod grid;
 mod hash;
 mod sample;

@@ -1,61 +1,49 @@
-use std::simd::{LaneCount, Simd, SupportedLaneCount};
+use fearless_simd::Simd;
 
 #[inline(always)]
-pub fn pcg<const LANES: usize>(v: Simd<i32, LANES>) -> Simd<i32, LANES>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
+pub fn pcg<S: Simd>(v: S::u32s) -> S::u32s {
     // PCG hash function from "Hash Functions for GPU Rendering"
-    let state = v * Simd::splat(747796405) + Simd::splat(2891336453u32 as i32);
-    let word =
-        ((state >> ((state >> Simd::splat(28)) + Simd::splat(4))) ^ state) * Simd::splat(277803737);
-    (word >> Simd::splat(22)) ^ word
+    let state = v * 747796405 + 2891336453u32;
+    let word = ((state >> ((state >> 28) + 4)) ^ state) * 277803737;
+    (word >> 22) ^ word
 }
 
 // For completeness
 #[allow(dead_code)]
 #[inline(always)]
-pub fn pcg_2d<const LANES: usize>([mut vx, mut vy]: [Simd<i32, LANES>; 2]) -> [Simd<i32, LANES>; 2]
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
-    vx *= Simd::splat(1664525) + Simd::splat(1013904223);
-    vy *= Simd::splat(1664525) + Simd::splat(1013904223);
+pub fn pcg_2d<S: Simd>([mut vx, mut vy]: [S::u32s; 2]) -> [S::u32s; 2] {
+    vx = vx * 1664525 + 1013904223;
+    vy = vy * 1664525 + 1013904223;
 
-    vx += vy * Simd::splat(1664525);
-    vy += vx * Simd::splat(1664525);
+    vx += vy * 1664525;
+    vy += vx * 1664525;
 
-    vx ^= vx >> Simd::splat(16);
-    vy ^= vy >> Simd::splat(16);
+    vx ^= vx >> 16;
+    vy ^= vy >> 16;
 
-    vx += vy * Simd::splat(1664525);
-    vy += vx * Simd::splat(1664525);
+    vx += vy * 1664525;
+    vy += vx * 1664525;
 
-    vx ^= vx >> Simd::splat(16);
-    vy ^= vy >> Simd::splat(16);
+    vx ^= vx >> 16;
+    vy ^= vy >> 16;
 
     [vx, vy]
 }
 
 #[inline(always)]
-pub fn pcg_3d<const LANES: usize>(
-    [mut vx, mut vy, mut vz]: [Simd<i32, LANES>; 3],
-) -> [Simd<i32, LANES>; 3]
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
+pub fn pcg_3d<S: Simd>([mut vx, mut vy, mut vz]: [S::u32s; 3]) -> [S::u32s; 3] {
     // PCG3D hash function from "Hash Functions for GPU Rendering"
-    vx = vx * Simd::splat(1664525) + Simd::splat(1013904223);
-    vy = vy * Simd::splat(1664525) + Simd::splat(1013904223);
-    vz = vz * Simd::splat(1664525) + Simd::splat(1013904223);
+    vx = vx * 1664525 + 1013904223;
+    vy = vy * 1664525 + 1013904223;
+    vz = vz * 1664525 + 1013904223;
 
     vx += vy * vz;
     vy += vz * vx;
     vz += vx * vy;
 
-    vx = vx ^ (vx >> Simd::splat(16));
-    vy = vy ^ (vy >> Simd::splat(16));
-    vz = vz ^ (vz >> Simd::splat(16));
+    vx = vx ^ (vx >> 16);
+    vy = vy ^ (vy >> 16);
+    vz = vz ^ (vz >> 16);
 
     vx += vy * vz;
     vy += vz * vx;
@@ -65,27 +53,22 @@ where
 }
 
 #[inline(always)]
-pub fn pcg_4d<const LANES: usize>(
-    [mut vx, mut vy, mut vz, mut vw]: [Simd<i32, LANES>; 4],
-) -> [Simd<i32, LANES>; 4]
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
+pub fn pcg_4d<S: Simd>([mut vx, mut vy, mut vz, mut vw]: [S::u32s; 4]) -> [S::u32s; 4] {
     // PCG4D hash function from "Hash Functions for GPU Rendering"
-    vx = vx * Simd::splat(1664525) + Simd::splat(1013904223);
-    vy = vy * Simd::splat(1664525) + Simd::splat(1013904223);
-    vz = vz * Simd::splat(1664525) + Simd::splat(1013904223);
-    vw = vw * Simd::splat(1664525) + Simd::splat(1013904223);
+    vx = vx * 1664525 + 1013904223;
+    vy = vy * 1664525 + 1013904223;
+    vz = vz * 1664525 + 1013904223;
+    vw = vw * 1664525 + 1013904223;
 
     vx += vy * vw;
     vy += vz * vx;
     vz += vx * vy;
     vw += vy * vz;
 
-    vx = vx ^ (vx >> Simd::splat(16));
-    vy = vy ^ (vy >> Simd::splat(16));
-    vz = vz ^ (vz >> Simd::splat(16));
-    vw = vw ^ (vw >> Simd::splat(16));
+    vx = vx ^ (vx >> 16);
+    vy = vy ^ (vy >> 16);
+    vz = vz ^ (vz >> 16);
+    vw = vw ^ (vw >> 16);
 
     vx += vy * vw;
     vy += vz * vx;
