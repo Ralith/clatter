@@ -76,11 +76,13 @@ fn generate(opts: &Opts, pixels: &mut Vec<u8>) {
     generate_inner::<4>(opts, pixels);
 }
 
+#[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2,fma")]
 unsafe fn generate_avx2(opts: &Opts, pixels: &mut Vec<u8>) {
     generate_inner::<8>(opts, pixels);
 }
 
+#[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse4.2")]
 unsafe fn generate_sse(opts: &Opts, pixels: &mut Vec<u8>) {
     generate_inner::<4>(opts, pixels);
