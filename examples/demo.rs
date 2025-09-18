@@ -56,20 +56,24 @@ fn main() {
 }
 
 fn generate(opts: &Opts, pixels: &mut Vec<u8>) {
-    if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-        println!("using AVX2 + FMA");
-        unsafe {
-            generate_avx2(opts, pixels);
+    #[cfg(target_arch = "x86_64")]
+    {
+        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+            println!("using AVX2 + FMA");
+            unsafe {
+                generate_avx2(opts, pixels);
+            }
+            return;
+        } else if is_x86_feature_detected!("sse4.2") {
+            println!("using SSE4.2");
+            unsafe {
+                generate_sse(opts, pixels);
+            }
+            return;
         }
-    } else if is_x86_feature_detected!("sse4.2") {
-        println!("using SSE4.2");
-        unsafe {
-            generate_sse(opts, pixels);
-        }
-    } else {
-        println!("no supported SIMD");
-        generate_inner::<4>(opts, pixels);
     }
+    println!("no runtime features detected");
+    generate_inner::<4>(opts, pixels);
 }
 
 #[target_feature(enable = "avx2,fma")]
