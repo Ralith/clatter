@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign};
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign};
 
 use fearless_simd::{Simd, SimdBase};
 

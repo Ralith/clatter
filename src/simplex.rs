@@ -629,6 +629,9 @@ impl<S: Simd> Gradient4d<S> {
 
 #[cfg(test)]
 mod tests {
+    extern crate std;
+    use std::{dbg, println};
+
     use fearless_simd::{f32x4, i32x4, Fallback};
 
     use super::*;

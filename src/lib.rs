@@ -1,3 +1,5 @@
+#![no_std]
+
 mod grid;
 mod hash;
 mod sample;
