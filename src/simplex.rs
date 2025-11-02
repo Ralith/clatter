@@ -2,7 +2,6 @@ use fearless_simd::{Bytes, Select, Simd, SimdBase, SimdFloat, SimdInt};
 #[cfg(feature = "rand")]
 use rand::{
     distributions::{Distribution, Standard},
-    seq::SliceRandom,
     Rng,
 };
 
