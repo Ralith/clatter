@@ -1,11 +1,16 @@
 use fearless_simd::Simd;
 
 #[inline(always)]
-pub fn pcg<S: Simd>(v: S::u32s) -> S::u32s {
-    // PCG hash function from "Hash Functions for GPU Rendering"
-    let state = v * 747796405 + 2891336453u32;
-    let word = ((state >> ((state >> 28) + 4)) ^ state) * 277803737;
-    (word >> 22) ^ word
+pub fn esgtsa<S: Simd>(mut v: S::u32s) -> S::u32s {
+    // ESGTSA hash from "Hash Functions for GPU Rendering", detailed in the supplementary paper.
+    //
+    // The paper recommends the 1D PCG hash, which it says is slightly faster and fails very slightly fewer BigCrush
+    // tests. However, it contains a variable right shift, which is slow on AVX2 and scalarized entirely in SSE4.2 and
+    // below. In practice, ESGTSA is faster on CPU.
+    v = (v ^ 2747636419) * 2654435769;
+    v = (v ^ (v >> 16)) * 2654435769;
+    v = (v ^ (v >> 16)) * 2654435769;
+    v
 }
 
 // For completeness

@@ -29,8 +29,8 @@ impl Simplex1d {
         let ([[i0], [i1]], [[x0], [x1]]) = grid::Simplex.get::<S>(point);
 
         // Select gradients
-        let gi0 = hash::pcg::<S>((i0 ^ self.seed).bitcast());
-        let gi1 = hash::pcg::<S>((i1 ^ self.seed).bitcast());
+        let gi0 = hash::esgtsa::<S>((i0 ^ self.seed).bitcast());
+        let gi1 = hash::esgtsa::<S>((i1 ^ self.seed).bitcast());
 
         // Compute the contribution from the first gradient
         // n0 = grad0 * (1 - x0^2)^4 * x0
@@ -90,7 +90,7 @@ impl Distribution<Simplex1d> for Standard {
 /// Generates a nonzero random integer gradient in ±8 inclusive
 #[inline(always)]
 fn gradient_1d<S: Simd>(hash: S::u32s) -> S::f32s {
-    let h = hash & 0xF;
+    let h = hash >> 28;
     let v = ((h & 7) + 1).to_float::<S::f32s>();
 
     let h_and_8 = (h & 8).simd_eq(S::u32s::splat(hash.witness(), 0));
