@@ -74,7 +74,7 @@ fn generate<S: Simd>(simd: S, opts: &Opts, pixels: &mut Vec<u8>) {
                 if x + i >= opts.resolution {
                     break;
                 }
-                pixels.push(value.as_slice()[i] as u8);
+                pixels.push(value[i] as u8);
             }
             x += S::f32s::N;
         }

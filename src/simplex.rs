@@ -126,9 +126,9 @@ impl Simplex2d {
 
         // Weights associated with the gradients at each corner
         // These FMA operations are equivalent to: let t = max(0, 0.5 - x*x - y*y)
-        let t0 = y0.madd(-y0, x0.madd(-x0, 0.5f32)).max(0.0f32);
-        let t1 = y1.madd(-y1, x1.madd(-x1, 0.5)).max(0.0);
-        let t2 = y2.madd(-y2, x2.madd(-x2, 0.5)).max(0.0);
+        let t0 = y0.mul_add(-y0, x0.mul_add(-x0, 0.5f32)).max(0.0f32);
+        let t1 = y1.mul_add(-y1, x1.mul_add(-x1, 0.5)).max(0.0);
+        let t2 = y2.mul_add(-y2, x2.mul_add(-x2, 0.5)).max(0.0);
 
         let t20 = t0 * t0;
         let t40 = t20 * t20;
@@ -427,19 +427,19 @@ impl Simplex4d {
 
         // These FMA operations are equivalent to: let t = max(0, 0.5 - x*x - y*y - z*z - w*w)
         let t0 = w0
-            .madd(-w0, z0.madd(-z0, y0.madd(-y0, x0.madd(-x0, 0.5))))
+            .mul_add(-w0, z0.mul_add(-z0, y0.mul_add(-y0, x0.mul_add(-x0, 0.5))))
             .max(0.0);
         let t1 = w1
-            .madd(-w1, z1.madd(-z1, y1.madd(-y1, x1.madd(-x1, 0.5))))
+            .mul_add(-w1, z1.mul_add(-z1, y1.mul_add(-y1, x1.mul_add(-x1, 0.5))))
             .max(0.0);
         let t2 = w2
-            .madd(-w2, z2.madd(-z2, y2.madd(-y2, x2.madd(-x2, 0.5))))
+            .mul_add(-w2, z2.mul_add(-z2, y2.mul_add(-y2, x2.mul_add(-x2, 0.5))))
             .max(0.0);
         let t3 = w3
-            .madd(-w3, z3.madd(-z3, y3.madd(-y3, x3.madd(-x3, 0.5))))
+            .mul_add(-w3, z3.mul_add(-z3, y3.mul_add(-y3, x3.mul_add(-x3, 0.5))))
             .max(0.0);
         let t4 = w4
-            .madd(-w4, z4.madd(-z4, y4.madd(-y4, x4.madd(-x4, 0.5))))
+            .mul_add(-w4, z4.mul_add(-z4, y4.mul_add(-y4, x4.mul_add(-x4, 0.5))))
             .max(0.0);
 
         // Cube each weight

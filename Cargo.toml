@@ -17,7 +17,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-fearless_simd = "0.3"
+fearless_simd = "0.4"
 rand = { version = "0.8.4", default-features = false, optional = true }
 
 [dev-dependencies]
