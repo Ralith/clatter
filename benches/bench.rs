@@ -6,35 +6,35 @@ use fearless_simd::{dispatch, Level, Simd, SimdBase};
 
 fn simplex_1d(bench: &mut Bencher) {
     let level = Level::new();
-    bench.iter(|| {
+    dispatch!(level, simd => bench.iter(|| {
         let x = array::from_fn::<f32, 8, _>(|i| black_box(0.5 + i as f32 * 0.2));
         let mut out = [0.0; 8];
-        dispatch!(level, simd => sample_1d(simd, &x, &mut out));
+         sample_1d(simd, &x, &mut out);
         black_box(out);
-    });
+    }));
 }
 
 fn simplex_2d(bench: &mut Bencher) {
     let level = Level::new();
-    bench.iter(|| {
+    dispatch!(level, simd => bench.iter(|| {
         let x = array::from_fn::<f32, 8, _>(|i| black_box(0.5 + i as f32 * 0.2));
         let y = x;
         let mut out = [0.0; 8];
-        dispatch!(level, simd => sample_2d(simd, [&x, &y], &mut out));
+        sample_2d(simd, [&x, &y], &mut out);
         black_box(out);
-    });
+    }));
 }
 
 fn simplex_3d(bench: &mut Bencher) {
     let level = Level::new();
-    bench.iter(|| {
+    dispatch!(level, simd => bench.iter(|| {
         let x = array::from_fn::<f32, 8, _>(|i| black_box(0.5 + i as f32 * 0.2));
         let y = x;
         let z = x;
         let mut out = [0.0; 8];
-        dispatch!(level, simd => sample_3d(simd, [&x, &y, &z], &mut out));
+        sample_3d(simd, [&x, &y, &z], &mut out);
         black_box(out);
-    });
+    }));
 }
 
 benchmark_group!(benches, simplex_1d, simplex_2d, simplex_3d);
