@@ -18,7 +18,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 fearless_simd = "0.4"
-rand = { version = "0.8.4", default-features = false, optional = true }
+rand = { version = "0.10.1", default-features = false, optional = true }
 
 [dev-dependencies]
 approx = "0.5"
