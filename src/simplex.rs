@@ -211,6 +211,7 @@ fn gradient_2d<S: Simd>(hash: S::u32s) -> [S::f32s; 2] {
     [gx, gy]
 }
 
+#[derive(Debug, Clone)]
 pub struct Simplex3d {
     seed: i32,
 }
@@ -388,6 +389,7 @@ impl<S: Simd> Gradient3d<S> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Simplex4d {
     seed: i32,
 }
