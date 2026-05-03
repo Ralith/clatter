@@ -1,8 +1,8 @@
 use fearless_simd::{Bytes, Select, Simd, SimdBase, SimdFloat, SimdInt};
 #[cfg(feature = "rand")]
 use rand::{
-    distributions::{Distribution, Standard},
-    Rng,
+    distr::{Distribution, StandardUniform},
+    Rng, RngExt,
 };
 
 use crate::{grid, hash, Grid, Sample};
@@ -21,7 +21,7 @@ impl Simplex1d {
     #[cfg(feature = "rand")]
     #[inline]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self { seed: rng.gen() }
+        Self { seed: rng.random() }
     }
 
     #[inline(always)]
@@ -80,7 +80,7 @@ impl Default for Simplex1d {
 }
 
 #[cfg(feature = "rand")]
-impl Distribution<Simplex1d> for Standard {
+impl Distribution<Simplex1d> for StandardUniform {
     #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Simplex1d {
         Simplex1d::random(rng)
@@ -111,7 +111,7 @@ impl Simplex2d {
     #[cfg(feature = "rand")]
     #[inline]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self { seed: rng.gen() }
+        Self { seed: rng.random() }
     }
 
     #[inline(always)]
@@ -182,7 +182,7 @@ impl Default for Simplex2d {
 }
 
 #[cfg(feature = "rand")]
-impl Distribution<Simplex2d> for Standard {
+impl Distribution<Simplex2d> for StandardUniform {
     #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Simplex2d {
         Simplex2d::random(rng)
@@ -225,7 +225,7 @@ impl Simplex3d {
     #[cfg(feature = "rand")]
     #[inline]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self { seed: rng.gen() }
+        Self { seed: rng.random() }
     }
 
     #[inline(always)]
@@ -318,7 +318,7 @@ impl Default for Simplex3d {
 }
 
 #[cfg(feature = "rand")]
-impl Distribution<Simplex3d> for Standard {
+impl Distribution<Simplex3d> for StandardUniform {
     #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Simplex3d {
         Simplex3d::random(rng)
@@ -403,7 +403,7 @@ impl Simplex4d {
     #[cfg(feature = "rand")]
     #[inline]
     pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self { seed: rng.gen() }
+        Self { seed: rng.random() }
     }
 
     #[inline(always)]
@@ -533,7 +533,7 @@ impl Default for Simplex4d {
 }
 
 #[cfg(feature = "rand")]
-impl Distribution<Simplex4d> for Standard {
+impl Distribution<Simplex4d> for StandardUniform {
     #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Simplex4d {
         Simplex4d::random(rng)
