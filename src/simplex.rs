@@ -1,4 +1,4 @@
-use fearless_simd::{Bytes, Select, Simd, SimdBase, SimdFloat, SimdInt};
+use fearless_simd::{Bytes, Select, Simd, SimdBase, SimdFloat, SimdInt, SimdMask};
 #[cfg(feature = "rand")]
 use rand::{
     distr::{Distribution, StandardUniform},

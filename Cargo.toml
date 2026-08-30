@@ -17,10 +17,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-fearless_simd = "0.4"
+fearless_simd = "0.7"
 rand = { version = "0.10.1", default-features = false, optional = true }
 
 [dev-dependencies]
+fearless_simd = { version = "0.7", features = ["force_support_fallback"] }
 approx = "0.5"
 bencher = "0.1.5"
 lodepng = "3.6.1"
