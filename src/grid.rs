@@ -1,10 +1,10 @@
-use fearless_simd::{Select, Simd, SimdBase, SimdCvtFloat, SimdFloat, SimdInt, SimdMask};
+use fearless_simd::{ExtractToken, Select, Simd, SimdBase, SimdCvtFloat, SimdFloat, SimdInt};
 
 /// Convert a 32-bit lane mask into an `i32s` vector with `-1` in true lanes and `0` in false
 /// lanes
 #[inline(always)]
 fn mask_to_bits<S: Simd>(mask: S::mask32s) -> S::i32s {
-    let simd = mask.witness();
+    let simd = mask.token();
     mask.select(S::i32s::splat(simd, -1), S::i32s::splat(simd, 0))
 }
 
@@ -181,13 +181,13 @@ impl Grid<4> for Simplex {
         let z0 = z - (kps - t);
         let w0 = w - (lps - t);
 
-        let mut rank_x = S::i32s::splat(x.witness(), 0);
-        let mut rank_y = S::i32s::splat(x.witness(), 0);
-        let mut rank_z = S::i32s::splat(x.witness(), 0);
-        let mut rank_w = S::i32s::splat(x.witness(), 0);
+        let mut rank_x = S::i32s::splat(x.token(), 0);
+        let mut rank_y = S::i32s::splat(x.token(), 0);
+        let mut rank_z = S::i32s::splat(x.token(), 0);
+        let mut rank_w = S::i32s::splat(x.token(), 0);
 
-        let _1 = S::i32s::splat(x.witness(), 1);
-        let _0 = S::i32s::splat(x.witness(), 0);
+        let _1 = S::i32s::splat(x.token(), 1);
+        let _0 = S::i32s::splat(x.token(), 0);
         let cond = x0.simd_gt(y0);
         rank_x += cond.select(_1, _0);
         rank_y += cond.select(_0, _1);
@@ -207,7 +207,7 @@ impl Grid<4> for Simplex {
         rank_z += cond.select(_1, _0);
         rank_w += cond.select(_0, _1);
 
-        let w = x.witness();
+        let w = x.token();
         let _2 = S::i32s::splat(w, 2);
         let i1 = mask_to_bits::<S>(rank_x.simd_gt(_2));
         let j1 = mask_to_bits::<S>(rank_y.simd_gt(_2));

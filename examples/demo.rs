@@ -3,7 +3,7 @@ use std::time::Instant;
 use clap::Parser;
 
 use clatter::{Sample, Simplex2d};
-use fearless_simd::{dispatch, Simd, SimdBase, SimdFloat};
+use fearless_simd::{dispatch, ExtractToken, Simd, SimdBase, SimdFloat};
 
 /// Compute a patch of fractal brownian motion noise
 #[derive(Parser)]
@@ -58,7 +58,7 @@ fn generate<S: Simd>(simd: S, opts: &Opts, pixels: &mut Vec<u8>) {
         let mut x = 0;
         while x < opts.resolution {
             let mut px = S::f32s::splat(simd, x as f32 * step);
-            for i in 1..S::f32s::N {
+            for i in 1..S::f32s::LEN {
                 px.as_mut_slice()[i] += step * i as f32;
             }
             let py = S::f32s::splat(simd, y as f32 * step);
@@ -70,13 +70,13 @@ fn generate<S: Simd>(simd: S, opts: &Opts, pixels: &mut Vec<u8>) {
                 [px, py],
             );
             let value = ((sample.value + 1.0) * 255.0 / 2.0).to_int::<S::u32s>();
-            for i in 0..S::f32s::N {
+            for i in 0..S::f32s::LEN {
                 if x + i >= opts.resolution {
                     break;
                 }
                 pixels.push(value[i] as u8);
             }
-            x += S::f32s::N;
+            x += S::f32s::LEN;
         }
     }
 }
@@ -84,7 +84,7 @@ fn generate<S: Simd>(simd: S, opts: &Opts, pixels: &mut Vec<u8>) {
 #[inline(always)]
 fn fbm<S: Simd>(octaves: usize, gain: f32, lacunarity: f32, point: [S::f32s; 2]) -> Sample<S, 2> {
     const NOISE: Simplex2d = Simplex2d::new();
-    let simd = point[0].witness();
+    let simd = point[0].token();
 
     let mut result = Sample::constant(S::f32s::splat(simd, 0.0));
 

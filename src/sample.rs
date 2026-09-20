@@ -1,6 +1,6 @@
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign};
 
-use fearless_simd::{Simd, SimdBase};
+use fearless_simd::{ExtractToken, Simd, SimdBase};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Sample<S: Simd, const DIMENSION: usize> {
@@ -12,7 +12,7 @@ impl<S: Simd, const DIMENSION: usize> Sample<S, DIMENSION> {
     pub fn constant(value: S::f32s) -> Self {
         Self {
             value,
-            derivative: [S::f32s::splat(value.witness(), 0.0); DIMENSION],
+            derivative: [S::f32s::splat(value.token(), 0.0); DIMENSION],
         }
     }
 }

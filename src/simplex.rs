@@ -1,4 +1,4 @@
-use fearless_simd::{Bytes, Select, Simd, SimdBase, SimdFloat, SimdInt, SimdMask};
+use fearless_simd::{Bytes, ExtractToken, Select, Simd, SimdBase, SimdFloat, SimdInt};
 #[cfg(feature = "rand")]
 use rand::{
     distr::{Distribution, StandardUniform},
@@ -35,7 +35,7 @@ impl Simplex1d {
         // Compute the contribution from the first gradient
         // n0 = grad0 * (1 - x0^2)^4 * x0
         let x20 = x0 * x0;
-        let t0 = S::f32s::splat(x0.witness(), 1.0) - x20;
+        let t0 = S::f32s::splat(x0.token(), 1.0) - x20;
         let t20 = t0 * t0;
         let t40 = t20 * t20;
         let gx0 = gradient_1d::<S>(gi0);
@@ -44,7 +44,7 @@ impl Simplex1d {
         // Compute the contribution from the second gradient
         // n1 = grad1 * (x0 - 1) * (1 - (x0 - 1)^2)^4
         let x21 = x1 * x1;
-        let t1 = S::f32s::splat(x0.witness(), 1.0) - x21;
+        let t1 = S::f32s::splat(x0.token(), 1.0) - x21;
         let t21 = t1 * t1;
         let t41 = t21 * t21;
         let gx1 = gradient_1d::<S>(gi1);
@@ -93,7 +93,7 @@ fn gradient_1d<S: Simd>(hash: S::u32s) -> S::f32s {
     let h = hash >> 28;
     let v = ((h & 7) + 1).to_float::<S::f32s>();
 
-    let h_and_8 = (h & 8).simd_eq(S::u32s::splat(hash.witness(), 0));
+    let h_and_8 = (h & 8).simd_eq(S::u32s::splat(hash.token(), 0));
     h_and_8.select(v, -v)
 }
 
@@ -119,7 +119,7 @@ impl Simplex2d {
         let ([[i0, j0], [i1, j1], [i2, j2]], [[x0, y0], [x1, y1], [x2, y2]]) =
             grid::Simplex.get::<S>(point);
 
-        let seed = S::i32s::splat(i0.witness(), self.seed);
+        let seed = S::i32s::splat(i0.token(), self.seed);
         let gi0 = hash::pcg_3d::<S>([i0, j0, seed].map(|x| x.bitcast()))[0];
         let gi1 = hash::pcg_3d::<S>([i1, j1, seed].map(|x| x.bitcast()))[0];
         let gi2 = hash::pcg_3d::<S>([i2, j2, seed].map(|x| x.bitcast()))[0];
@@ -193,9 +193,9 @@ impl Distribution<Simplex2d> for StandardUniform {
 fn gradient_2d<S: Simd>(hash: S::u32s) -> [S::f32s; 2] {
     let h = hash & 7;
 
-    let mask = h.simd_lt(S::u32s::splat(hash.witness(), 4));
-    let _f1 = S::f32s::splat(hash.witness(), 1.0);
-    let _f2 = S::f32s::splat(hash.witness(), 2.0);
+    let mask = h.simd_lt(S::u32s::splat(hash.token(), 4));
+    let _f1 = S::f32s::splat(hash.token(), 1.0);
+    let _f2 = S::f32s::splat(hash.token(), 2.0);
     let x_magnitude = mask.select(_f1, _f2);
     let y_magnitude = mask.select(_f2, _f1);
 
@@ -343,7 +343,7 @@ impl<S: Simd> Gradient3d<S> {
     #[inline(always)]
     fn new(seed: i32, [i, j, k]: [S::i32s; 3]) -> Self {
         let hash =
-            hash::pcg_4d::<S>([i, j, k, S::i32s::splat(i.witness(), seed)].map(|x| x.bitcast()))[0];
+            hash::pcg_4d::<S>([i, j, k, S::i32s::splat(i.token(), seed)].map(|x| x.bitcast()))[0];
         let hasha13 = hash & 13;
         Self {
             l8: hasha13.simd_lt(8),
@@ -371,19 +371,16 @@ impl<S: Simd> Gradient3d<S> {
     /// derivatives.
     #[inline(always)]
     fn vector(&self) -> [S::f32s; 3] {
-        let first = (self.h1 | S::f32s::splat(self.h1.witness(), 1.0).bitcast::<S::u32s>())
+        let first = (self.h1 | S::f32s::splat(self.h1.token(), 1.0).bitcast::<S::u32s>())
             .bitcast::<S::f32s>();
-        let gx = self
-            .l8
-            .select(first, S::f32s::splat(self.h1.witness(), 0.0));
-        let gy = (!self.l8).select(first, S::f32s::splat(self.h1.witness(), 0.0));
+        let gx = self.l8.select(first, S::f32s::splat(self.h1.token(), 0.0));
+        let gy = (!self.l8).select(first, S::f32s::splat(self.h1.token(), 0.0));
 
-        let second = (self.h2 | S::f32s::splat(self.h1.witness(), 1.0).bitcast::<S::u32s>())
+        let second = (self.h2 | S::f32s::splat(self.h1.token(), 1.0).bitcast::<S::u32s>())
             .bitcast::<S::f32s>();
         let gy = self.l4.select(second, gy);
         let gx = (!self.l4 & self.h12_or_14).select(second, gx);
-        let gz =
-            (!(self.h12_or_14 | self.l4)).select(second, S::f32s::splat(self.h1.witness(), 0.0));
+        let gz = (!(self.h12_or_14 | self.l4)).select(second, S::f32s::splat(self.h1.token(), 0.0));
 
         [gx, gy, gz]
     }
@@ -562,13 +559,13 @@ impl<S: Simd> Gradient4d<S> {
 
         let h = hash & 31;
         Self {
-            l24: S::u32s::splat(i.witness(), 24).simd_gt(h),
-            l16: S::u32s::splat(i.witness(), 16).simd_gt(h),
-            l8: S::u32s::splat(i.witness(), 8).simd_gt(h),
+            l24: S::u32s::splat(i.token(), 24).simd_gt(h),
+            l16: S::u32s::splat(i.token(), 16).simd_gt(h),
+            l8: S::u32s::splat(i.token(), 8).simd_gt(h),
 
-            sign1: S::u32s::splat(i.witness(), 0).simd_eq(h & 1),
-            sign2: S::u32s::splat(i.witness(), 0).simd_eq(h & 2),
-            sign3: S::u32s::splat(i.witness(), 0).simd_eq(h & 4),
+            sign1: S::u32s::splat(i.token(), 0).simd_eq(h & 1),
+            sign2: S::u32s::splat(i.token(), 0).simd_eq(h & 2),
+            sign3: S::u32s::splat(i.token(), 0).simd_eq(h & 4),
         }
     }
 
@@ -595,26 +592,26 @@ impl<S: Simd> Gradient4d<S> {
         let gx = self
             .l24
             .select(
-                S::u32s::splat(self.l8.witness(), 1),
-                S::u32s::splat(self.l8.witness(), 0),
+                S::u32s::splat(self.l8.token(), 1),
+                S::u32s::splat(self.l8.token(), 0),
             )
             .bitcast::<S::i32s>();
         let gy = (self.l16 | !self.l24)
             .select(
-                S::u32s::splat(self.l8.witness(), 1),
-                S::u32s::splat(self.l8.witness(), 0),
+                S::u32s::splat(self.l8.token(), 1),
+                S::u32s::splat(self.l8.token(), 0),
             )
             .bitcast::<S::i32s>();
         let gz = (self.l8 | !self.l16)
             .select(
-                S::u32s::splat(self.l8.witness(), 1),
-                S::u32s::splat(self.l8.witness(), 0),
+                S::u32s::splat(self.l8.token(), 1),
+                S::u32s::splat(self.l8.token(), 0),
             )
             .bitcast::<S::i32s>();
         let gt = (!self.l8)
             .select(
-                S::u32s::splat(self.l8.witness(), 1),
-                S::u32s::splat(self.l8.witness(), 0),
+                S::u32s::splat(self.l8.token(), 1),
+                S::u32s::splat(self.l8.token(), 0),
             )
             .bitcast::<S::i32s>();
 
