@@ -1,12 +1,4 @@
-use fearless_simd::{ExtractToken, Select, Simd, SimdBase, SimdCvtFloat, SimdFloat, SimdInt};
-
-/// Convert a 32-bit lane mask into an `i32s` vector with `-1` in true lanes and `0` in false
-/// lanes
-#[inline(always)]
-fn mask_to_bits<S: Simd>(mask: S::mask32s) -> S::i32s {
-    let simd = mask.token();
-    mask.select(S::i32s::splat(simd, -1), S::i32s::splat(simd, 0))
-}
+use fearless_simd::{ExtractToken, Select, Simd, SimdBase, SimdCvtFloat, SimdFloat, SimdInt, SimdMask};
 
 /// A distribution of points across a space
 pub trait Grid<const DIMENSION: usize> {
@@ -68,8 +60,8 @@ impl Grid<2> for Simplex {
         let x0: S::f32s = x - (ips - t);
         let y0: S::f32s = y - (jps - t);
 
-        let i1 = mask_to_bits::<S>(x0.simd_ge(y0));
-        let j1 = mask_to_bits::<S>(y0.simd_gt(x0));
+        let i1 = (x0.simd_ge(y0)).to_vector();
+        let j1 = (y0.simd_gt(x0)).to_vector();
 
         // Distances to the second and third points of the enclosing simplex
         let x1 = x0 + S::f32s::float_from(i1) + unskew;
@@ -114,13 +106,13 @@ impl Grid<3> for Simplex {
         let y0_ge_z0 = y0.simd_ge(z0);
         let x0_ge_z0 = x0.simd_ge(z0);
 
-        let i1 = mask_to_bits::<S>(x0_ge_y0 & x0_ge_z0);
-        let j1 = mask_to_bits::<S>(!x0_ge_y0 & y0_ge_z0);
-        let k1 = mask_to_bits::<S>(!x0_ge_z0 & !y0_ge_z0);
+        let i1 = (x0_ge_y0 & x0_ge_z0).to_vector();
+        let j1 = (!x0_ge_y0 & y0_ge_z0).to_vector();
+        let k1 = (!x0_ge_z0 & !y0_ge_z0).to_vector();
 
-        let i2 = mask_to_bits::<S>(x0_ge_y0 | x0_ge_z0);
-        let j2 = mask_to_bits::<S>(!x0_ge_y0 | y0_ge_z0);
-        let k2 = mask_to_bits::<S>(!(x0_ge_z0 & y0_ge_z0));
+        let i2 = (x0_ge_y0 | x0_ge_z0).to_vector();
+        let j2 = (!x0_ge_y0 | y0_ge_z0).to_vector();
+        let k2 = (!(x0_ge_z0 & y0_ge_z0)).to_vector();
 
         let v1x = i - i1;
         let v1y = j - j1;
@@ -209,20 +201,20 @@ impl Grid<4> for Simplex {
 
         let w = x.token();
         let _2 = S::i32s::splat(w, 2);
-        let i1 = mask_to_bits::<S>(rank_x.simd_gt(_2));
-        let j1 = mask_to_bits::<S>(rank_y.simd_gt(_2));
-        let k1 = mask_to_bits::<S>(rank_z.simd_gt(_2));
-        let l1 = mask_to_bits::<S>(rank_w.simd_gt(_2));
+        let i1 = (rank_x.simd_gt(_2)).to_vector();
+        let j1 = (rank_y.simd_gt(_2)).to_vector();
+        let k1 = (rank_z.simd_gt(_2)).to_vector();
+        let l1 = (rank_w.simd_gt(_2)).to_vector();
 
-        let i2 = mask_to_bits::<S>(rank_x.simd_gt(_1));
-        let j2 = mask_to_bits::<S>(rank_y.simd_gt(_1));
-        let k2 = mask_to_bits::<S>(rank_z.simd_gt(_1));
-        let l2 = mask_to_bits::<S>(rank_w.simd_gt(_1));
+        let i2 = (rank_x.simd_gt(_1)).to_vector();
+        let j2 = (rank_y.simd_gt(_1)).to_vector();
+        let k2 = (rank_z.simd_gt(_1)).to_vector();
+        let l2 = (rank_w.simd_gt(_1)).to_vector();
 
-        let i3 = mask_to_bits::<S>(rank_x.simd_gt(_0));
-        let j3 = mask_to_bits::<S>(rank_y.simd_gt(_0));
-        let k3 = mask_to_bits::<S>(rank_z.simd_gt(_0));
-        let l3 = mask_to_bits::<S>(rank_w.simd_gt(_0));
+        let i3 = (rank_x.simd_gt(_0)).to_vector();
+        let j3 = (rank_y.simd_gt(_0)).to_vector();
+        let k3 = (rank_z.simd_gt(_0)).to_vector();
+        let l3 = (rank_w.simd_gt(_0)).to_vector();
 
         let x1 = x0 + i1.to_float::<S::f32s>() + unskew;
         let y1 = y0 + j1.to_float::<S::f32s>() + unskew;
